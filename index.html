@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEAD CASES</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #dfdcd7;
+            font-family: monospace;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #333;
+            font-size: 14px;
+            pointer-events: none;
+        }
+        .key {
+            background: #ccc;
+            border: 1px solid #aaa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 0 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+        <b>HEAD CASES</b> &nbsp; <i>every line is code тАФ move, click to spin, drag to turn a head</i> &nbsp;
+        <span class="key">W</span> wave &nbsp;
+        <span class="key">F</span> fly &nbsp;
+        <span class="key">S</span> sneeze &nbsp;
+        <span class="key">Y</span> yawn &nbsp;
+        <span class="key">G</span> gossip &nbsp;
+        <span class="key">space</span> say cheese &nbsp;
+        <span class="key">N</span> new faces
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let faces = [];
+        const cols = 9;
+        const rows = 4;
+        let mouseX = 0, mouseY = 0;
+        let isDragging = false;
+        let draggedFace = null;
+        let lastMouseX = 0, lastMouseY = 0;
+        
+        let activeAnimation = null;
+        let animTimer = 0;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initFaces();
+        }
+
+        function initFaces() {
+            faces = [];
+            const cellW = width / cols;
+            const cellH = height / rows;
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    faces.push(new Face(x * cellW + cellW / 2, y * cellH + cellH / 2, cellW, cellH));
+                }
+            }
+        }
+
+        class Face {
+            constructor(x, y, cw, ch) {
+                this.baseX = x;
+                this.baseY = y;
+                this.x = x;
+                this.y = y;
+                this.scale = Math.min(cw, ch) * 0.35;
+                
+                this.yaw = 0;
+                this.pitch = 0;
+                this.spinVel = 0;
+                
+                this.vx = 0;
+                this.vy = 0;
+                
+                this.generateTraits();
+                
+                // Animation states
+                this.mouthOpen = 0;
+                this.eyeClose = 0;
+                this.smile = 0;
+            }
+            
+            generateTraits() {
+                this.seed = Math.random();
+                this.headW = 0.8 + Math.random() * 0.4;
+                this.headH = 0.9 + Math.random() * 0.4;
+                this.jawShape = Math.random() > 0.5 ? 1 : 0; // 0=round, 1=square
+                this.hairType = Math.floor(Math.random() * 6); // 0=none, 1=short, 2=curly, 3=headband, 4=comb, 5=bun
+                this.glasses = Math.floor(Math.random() * 5); // 0=none, 1=round, 2=square, 3=monocle, 4=shades
+                if (Math.random() > 0.3) this.glasses = 0;
+                this.facialHair = Math.floor(Math.random() * 3); // 0=none, 1=stubble, 2=mustache
+                if (Math.random() > 0.4) this.facialHair = 0;
+                this.noseSize = 0.5 + Math.random() * 0.8;
+                this.eyeDist = 0.3 + Math.random() * 0.2;
+                this.eyeH = 0.1 + Math.random() * 0.2;
+                
+                this.hairColor = Math.random() > 0.3 ? '#111' : '#eee';
+                if (this.hairColor === '#eee') this.hairLines = true;
+                else this.hairLines = false;
+            }
+
+            update() {
+                // Return to base position unless flying
+                if (activeAnimation !== 'fly') {
+                    this.x += (this.baseX - this.x) * 0.1;
+                    this.y += (this.baseY - this.y) * 0.1;
+                    this.vx = 0;
+                    this.vy = 0;
+                }
+                
+                let targetYaw = 0;
+                let targetPitch = 0;
+                
+                if (draggedFace === this) {
+                    // Manual dragging overrides look
+                } else if (Math.abs(this.spinVel) > 0.01) {
+                    this.yaw += this.spinVel;
+                    this.spinVel *= 0.92;
+                } else {
+                    // Default look at mouse
+                    const dx = mouseX - this.x;
+                    const dy = mouseY - this.y;
+                    targetYaw = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, dx / 400));
+                    targetPitch = Math.max(-Math.PI/4, Math.min(Math.PI/4, dy / 400));
+                    
+                    // Animations override look
+                    if (activeAnimation === 'wave') {
+                        this.y = this.baseY + Math.sin(animTimer * 0.1 + this.baseX * 0.01) * 30;
+                    } else if (activeAnimation === 'fly') {
+                        this.y += Math.sin(animTimer * 0.05 + this.baseX) * 2;
+                        this.x += Math.cos(animTimer * 0.04 + this.baseY) * 2;
+                        targetYaw = Math.sin(animTimer*0.05 + this.baseY) * 0.5;
+                        targetPitch = -Math.PI/6 + Math.sin(animTimer*0.08 + this.baseX) * 0.2;
+                    } else if (activeAnimation === 'sneeze') {
+                        let phase = animTimer / 60; // 0 to 1
+                        if (phase < 0.7) {
+                            targetPitch = -Math.PI/3; // head back
+                            this.mouthOpen = 0;
+                            this.eyeClose = 1;
+                        } else {
+                            targetPitch = Math.PI/3; // head forward
+                            this.mouthOpen = 1;
+                            this.eyeClose = 0.5;
+                        }
+                    } else if (activeAnimation === 'yawn') {
+                        targetPitch = -Math.PI/4;
+                        this.mouthOpen = Math.sin(animTimer * Math.PI / 120);
+                        this.eyeClose = this.mouthOpen;
+                    } else if (activeAnimation === 'gossip') {
+                        let colIdx = Math.floor(this.baseX / (width/cols));
+                        targetYaw = (colIdx % 2 === 0) ? Math.PI/3 : -Math.PI/3;
+                        targetPitch = Math.sin(animTimer * 0.1 + this.baseX) * 0.1;
+                        this.mouthOpen = Math.random() > 0.5 ? 0.8 : 0;
+                    } else if (activeAnimation === 'cheese') {
+                        targetYaw = 0;
+                        targetPitch = 0;
+                        this.smile = 1;
+                        this.mouthOpen = 0.5;
+                    }
+                    
+                    if (activeAnimation !== 'sneeze' && activeAnimation !== 'yawn' && activeAnimation !== 'cheese' && activeAnimation !== 'gossip') {
+                        this.mouthOpen *= 0.8;
+                        this.eyeClose *= 0.8;
+                        this.smile *= 0.8;
+                    }
+                    
+                    this.yaw += (targetYaw - this.yaw) * 0.1;
+                    this.pitch += (targetPitch - this.pitch) * 0.1;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.scale(this.scale, this.scale);
+                
+                // Draw Head
+                ctx.lineWidth = 0.04;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = '#111';
+                
+                const sx = Math.sin(this.yaw);
+                const sy = Math.sin(this.pitch);
+                const cx = Math.cos(this.yaw);
+                const cy = Math.cos(this.pitch);
+                
+                // Outline
+                ctx.fillStyle = '#f0efeb';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.headW, this.headH, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw Hair (Back/Top)
+                this.drawHair(ctx, sx, sy, true);
+
+                // Face elements offset by pseudo 3D
+                const fx = sx * this.headW * 0.7;
+                const fy = sy * this.headH * 0.7;
+                
+                // Front check (if yaw > PI/2, we see back of head)
+                const isFront = Math.cos(this.yaw) > 0;
+                
+                if (isFront) {
+                    // Eyes
+                    const ex = this.eyeDist;
+                    const ey = -0.1 + this.eyeH;
+                    
+                    // Left Eye
+                    this.drawEye(ctx, fx - ex * cx, fy + ey, sx);
+                    // Right Eye
+                    this.drawEye(ctx, fx + ex * cx, fy + ey, sx);
+                    
+                    // Glasses
+                    this.drawGlasses(ctx, fx, fy, cx, sy);
+                    
+                    // Nose
+                    ctx.beginPath();
+                    ctx.moveTo(fx, fy + 0.1);
+                    ctx.lineTo(fx + sx * 0.2, fy + this.noseSize * 0.4);
+                    ctx.lineTo(fx, fy + this.noseSize * 0.45);
+                    ctx.stroke();
+                    
+                    // Mustache
+                    if (this.facialHair === 2) {
+                        ctx.fillStyle = '#111';
+                        ctx.beginPath();
+                        ctx.ellipse(fx, fy + this.noseSize * 0.55, 0.3 * cx, 0.1, 0, 0, Math.PI, true);
+                        ctx.fill();
+                    }
+                    
+                    // Mouth
+                    this.drawMouth(ctx, fx, fy + this.noseSize * 0.6, cx);
+                    
+                    // Stubble
+                    if (this.facialHair === 1) {
+                        ctx.fillStyle = '#333';
+                        for(let i=0; i<10; i++) {
+                            let rx = (Math.random()-0.5) * 0.6 * cx;
+                            let ry = (Math.random()) * 0.3;
+                            ctx.fillRect(fx + rx, fy + this.noseSize * 0.7 + ry, 0.02, 0.02);
+                        }
+                    }
+                }
+
+                // Draw Hair (Front overlap)
+                this.drawHair(ctx, sx, sy, false);
+
+                // Neck
+                ctx.beginPath();
+                ctx.moveTo(-0.3, this.headH);
+                ctx.lineTo(-0.3, this.headH + 0.3);
+                ctx.moveTo(0.3, this.headH);
+                ctx.lineTo(0.3, this.headH + 0.3);
+                ctx.stroke();
+                
+                // Shoulders
+                ctx.beginPath();
+                ctx.moveTo(-0.3, this.headH + 0.3);
+                ctx.quadraticCurveTo(-0.8, this.headH + 0.35, -1, this.headH + 0.6);
+                ctx.moveTo(0.3, this.headH + 0.3);
+                ctx.quadraticCurveTo(0.8, this.headH + 0.35, 1, this.headH + 0.6);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+            
+            drawEye(ctx, x, y, sx) {
+                if (this.eyeClose > 0.5) {
+                    ctx.beginPath();
+                    ctx.moveTo(x - 0.1, y);
+                    ctx.lineTo(x + 0.1, y);
+                    ctx.stroke();
+                    return;
+                }
+                
+                // Sclera
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.ellipse(x, y, 0.12, 0.08, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Pupil
+                ctx.fillStyle = '#111';
+                let px = x + sx * 0.05;
+                let py = y + Math.sin(this.pitch) * 0.02;
+                ctx.beginPath();
+                ctx.arc(px, py, 0.04, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            drawGlasses(ctx, fx, fy, cx, sy) {
+                if (this.glasses === 0) return;
+                const ex = this.eyeDist;
+                const ey = -0.1 + this.eyeH;
+                
+                ctx.lineWidth = 0.03;
+                if (this.glasses === 1 || this.glasses === 4) { // Round or shades
+                    ctx.fillStyle = this.glasses === 4 ? '#222' : 'rgba(255,255,255,0.5)';
+                    ctx.beginPath();
+                    ctx.ellipse(fx - ex * cx, fy + ey, 0.22*cx, 0.22, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.ellipse(fx + ex * cx, fy + ey, 0.22*cx, 0.22, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.stroke();
+                    // bridge
+                    ctx.beginPath();
+                    ctx.moveTo(fx - ex*cx + 0.22*cx, fy + ey);
+                    ctx.lineTo(fx + ex*cx - 0.22*cx, fy + ey);
+                    ctx.stroke();
+                } else if (this.glasses === 2) { // Square
+                    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                    ctx.strokeRect(fx - ex * cx - 0.2*cx, fy + ey - 0.15, 0.4*cx, 0.3);
+                    ctx.strokeRect(fx + ex * cx - 0.2*cx, fy + ey - 0.15, 0.4*cx, 0.3);
+                    // bridge
+                    ctx.beginPath();
+                    ctx.moveTo(fx - ex*cx + 0.2*cx, fy + ey);
+                    ctx.lineTo(fx + ex*cx - 0.2*cx, fy + ey);
+                    ctx.stroke();
+                } else if (this.glasses === 3) { // Monocle
+                    ctx.beginPath();
+                    ctx.ellipse(fx + ex * cx, fy + ey, 0.2*cx, 0.2, 0, 0, Math.PI*2);
+                    ctx.stroke();
+                    // chain
+                    ctx.beginPath();
+                    ctx.moveTo(fx + ex * cx + 0.2*cx, fy + ey);
+                    ctx.quadraticCurveTo(fx + ex * cx + 0.3, fy + ey + 0.4, fx + ex * cx + 0.1, fy + ey + 0.8);
+                    ctx.stroke();
+                }
+            }
+            
+            drawMouth(ctx, fx, fy, cx) {
+                if (this.mouthOpen > 0.2) {
+                    ctx.fillStyle = '#111';
+                    ctx.beginPath();
+                    let mw = (0.2 + this.smile * 0.1) * cx;
+                    let mh = this.mouthOpen * 0.3;
+                    ctx.ellipse(fx, fy + mh/2, Math.abs(mw), mh, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    // tongue
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.beginPath();
+                    ctx.ellipse(fx, fy + mh - 0.05, Math.abs(mw) * 0.6, mh * 0.3, 0, 0, Math.PI, true);
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (this.smile > 0.5) {
+                    ctx.beginPath();
+                    ctx.moveTo(fx - 0.2 * cx, fy);
+                    ctx.quadraticCurveTo(fx, fy + 0.2, fx + 0.2 * cx, fy);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(fx - 0.15 * cx, fy);
+                    ctx.lineTo(fx + 0.15 * cx, fy);
+                    ctx.stroke();
+                }
+            }
+            
+            drawHair(ctx, sx, sy, isBack) {
+                ctx.fillStyle = this.hairColor;
+                ctx.strokeStyle = '#111';
+                
+                const hx = sx * this.headW * 0.3;
+                const hy = -this.headH * 0.8 + sy * this.headH * 0.2;
+                
+                if (this.hairType === 1 && isBack) {
+                    // Short solid hair
+                    ctx.beginPath();
+                    ctx.ellipse(hx, hy, this.headW * 1.05, this.headH * 0.4, 0, Math.PI, 0);
+                    ctx.fill();
+                    if(this.hairLines) ctx.stroke();
+                } else if (this.hairType === 2 && isBack) {
+                    // Curly
+                    for(let i=0; i<Math.PI; i+=0.3) {
+                        let cx = hx + Math.cos(i) * this.headW;
+                        let cy = hy - Math.sin(i) * this.headH * 0.4;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, 0.2, 0, Math.PI*2);
+                        ctx.stroke();
+                    }
+                } else if (this.hairType === 3 && !isBack) {
+                    // Headband
+                    ctx.fillStyle = '#eee';
+                    ctx.beginPath();
+                    ctx.ellipse(hx, hy + 0.2, this.headW, 0.15, Math.PI*sx*0.1, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (this.hairType === 4 && isBack) {
+                    // Comb lines
+                    for(let i=-1; i<=1; i+=0.1) {
+                        ctx.beginPath();
+                        ctx.moveTo(hx + i*this.headW, hy);
+                        ctx.quadraticCurveTo(hx + i*this.headW + sx*0.5, hy - 0.5, hx + i*this.headW + 0.5, hy + 0.5);
+                        ctx.stroke();
+                    }
+                } else if (this.hairType === 5 && isBack) {
+                    // Bun
+                    ctx.beginPath();
+                    ctx.ellipse(hx, hy - 0.2, this.headW * 0.9, this.headH * 0.5, 0, Math.PI, 0);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(hx, hy - this.headH * 0.5, 0.3, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            if (isDragging && draggedFace) {
+                let dx = mouseX - lastMouseX;
+                let dy = mouseY - lastMouseY;
+                draggedFace.yaw += dx * 0.01;
+                draggedFace.pitch += dy * 0.01;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+            }
+        });
+        
+        window.addEventListener('mousedown', (e) => {
+            let closest = null;
+            let minDist = 10000;
+            faces.forEach(f => {
+                let dist = Math.hypot(f.x - e.clientX, f.y - e.clientY);
+                if (dist < f.scale * f.headW * 2 && dist < minDist) {
+                    minDist = dist;
+                    closest = f;
+                }
+            });
+            
+            if (closest) {
+                draggedFace = closest;
+                isDragging = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                // Click to spin
+                if (!draggedFace.wasDragged) {
+                    draggedFace.spinVel = 0.5; // Trigger spin
+                }
+                draggedFace.wasDragged = false;
+            }
+        });
+        
+        window.addEventListener('mouseup', () => {
+            if (isDragging && draggedFace) {
+                draggedFace.wasDragged = true;
+            }
+            isDragging = false;
+            draggedFace = null;
+        });
+
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (['w','f','s','y','g',' '].includes(key)) {
+                if (key === ' ') activeAnimation = 'cheese';
+                else if (key === 'w') activeAnimation = 'wave';
+                else if (key === 'f') activeAnimation = 'fly';
+                else if (key === 's') activeAnimation = 'sneeze';
+                else if (key === 'y') activeAnimation = 'yawn';
+                else if (key === 'g') activeAnimation = 'gossip';
+                animTimer = 0;
+            } else if (key === 'n') {
+                faces.forEach(f => f.generateTraits());
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (['w','f','y','g',' '].includes(key)) {
+                activeAnimation = null;
+            }
+        });
+
+        function loop() {
+            ctx.clearRect(0, 0, width, height);
+            
+            if (activeAnimation) {
+                animTimer++;
+                if (activeAnimation === 'sneeze' && animTimer > 60) {
+                    activeAnimation = null;
+                }
+            }
+            
+            faces.forEach(f => {
+                f.update();
+                f.draw(ctx);
+            });
+            
+            requestAnimationFrame(loop);
+        }
+
+        resize();
+        loop();
+    </script>
+</body>
+</html>
