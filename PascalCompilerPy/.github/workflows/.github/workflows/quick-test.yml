@@ -1,0 +1,21 @@
+name: Quick Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Quick Compiler Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Run Tests
+      run: python run_tests.py

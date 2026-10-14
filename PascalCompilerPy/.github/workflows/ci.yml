@@ -1,0 +1,111 @@
+name: Pascal Compiler CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Pascal Compiler
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Display Python version
+      run: python --version
+    
+    - name: Test Simple Program
+      run: python pascal_compiler.py test_simple.pas
+    
+    - name: Test Control Structures
+      run: python pascal_compiler.py test_control.pas -o test_control_output.txt
+    
+    - name: Test Functions
+      run: python pascal_compiler.py test_functions.pas -o test_functions_output.txt
+    
+    - name: Test Error Handling
+      run: python pascal_compiler.py test_errors.pas
+    
+    - name: Run All Tests
+      run: python run_tests.py
+    
+    - name: Upload Test Outputs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-outputs-${{ matrix.os }}-python${{ matrix.python-version }}
+        path: |
+          test_control_output.txt
+          test_functions_output.txt
+        retention-days: 7
+
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+    
+    - name: Lint with flake8
+      run: |
+        # Stop build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+      continue-on-error: true
+
+  build-release:
+    name: Build Release Package
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Create Release Archive
+      run: |
+        mkdir -p release
+        cp *.py release/
+        cp *.pas release/
+        cp *.md release/
+        cp *.bat release/
+        cd release
+        tar -czf pascal-compiler.tar.gz *
+        zip -r pascal-compiler.zip *
+    
+    - name: Upload Release Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: pascal-compiler-release
+        path: |
+          release/pascal-compiler.tar.gz
+          release/pascal-compiler.zip
+        retention-days: 30
