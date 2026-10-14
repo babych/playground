@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Головна - Блог{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="display-4">Останні пости</h1>
+        {% if session.user_id %}
+            <p class="lead">Вітаємо, {{ session.username }}! Готові поділитися своїми думками?</p>
+        {% else %}
+            <p class="lead">Блог для обміну ідеями та думками</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    {% if posts %}
+        {% for post in posts %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card post-card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ post.title }}</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">
+                        <small>Автор: 
+                            <a href="{{ url_for('profile', username=post.author.username) }}" class="text-decoration-none">
+                                {{ post.author.username }}
+                            </a>
+                        </small>
+                    </h6>
+                    <p class="card-text">{{ post.content[:150] }}{% if post.content|length > 150 %}...{% endif %}</p>
+                    <p class="text-muted small">
+                        <small>{{ post.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
+                    </p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-sm btn-primary">Читати далі</a>
+                    {% if session.user_id == post.user_id %}
+                        <a href="{{ url_for('edit_post', post_id=post.id) }}" class="btn btn-sm btn-outline-secondary">Редагувати</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <h4>Поки що немає постів</h4>
+                {% if session.user_id %}
+                    <p>Будьте першим, хто створить пост!</p>
+                    <a href="{{ url_for('new_post') }}" class="btn btn-primary">Створити пост</a>
+                {% else %}
+                    <p>Увійдіть, щоб створити перший пост!</p>
+                    <a href="{{ url_for('login') }}" class="btn btn-primary">Увійти</a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
