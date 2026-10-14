@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: weather-api-ingress
+  namespace: weather-api-ns
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: weather-api.172.199.209.31.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: weather-api-service
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - weather-api.172.199.209.31.nip.io
+      secretName: weather-api-tls
