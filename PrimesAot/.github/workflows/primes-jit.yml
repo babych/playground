@@ -1,0 +1,37 @@
+name: Build & Run Primes JIT
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-run-jit:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Publish JIT Release
+        run: dotnet publish PrimesAot.csproj -c Release -r win-x64 -o publish/jit
+
+      - name: List published files
+        run: dir publish/jit
+
+      - name: Run Primes JIT
+        run: publish\jit\PrimesAot.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Primes-JIT
+          path: publish/jit/

@@ -1,0 +1,35 @@
+name: Build & Run Primes NativeAOT
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-run:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Publish NativeAOT
+        run: dotnet publish PrimesAot.csproj -c Release -r win-x64 -p:PublishAot=true -o publish
+
+      - name: List files
+        run: dir publish
+
+      - name: Run Primes
+        run: publish\PrimesAot.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrimesAotBuild
+          path: publish/

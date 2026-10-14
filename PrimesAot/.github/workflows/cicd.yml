@@ -1,0 +1,78 @@
+name: Primes Benchmark (AOT vs JIT)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      # ---------- AOT ----------
+      - name: Publish AOT
+        run: dotnet publish PrimesAot.csproj -c Release -r win-x64 -p:PublishAot=true -o publish/aot
+
+      - name: Run AOT
+        shell: pwsh
+        run: |
+          $out = publish\aot\PrimesAot.exe
+          echo "$out"
+          "$out" | Out-File aot.txt
+
+      # ---------- JIT ----------
+      - name: Publish JIT
+        run: dotnet publish PrimesAot.csproj -c Release -r win-x64 -o publish/jit
+
+      - name: Run JIT
+        shell: pwsh
+        run: |
+          $out = publish\jit\PrimesAot.exe
+          echo "$out"
+          "$out" | Out-File jit.txt
+
+      # ---------- Compare ----------
+      - name: Side-by-side comparison
+        shell: pwsh
+        run: |
+          function Parse($text) {
+            @{
+              Passes = ($text -match 'Passes:\s*(\d+)')    ? $matches[1] : ''
+              Time   = ($text -match 'Time:\s*([\d\.]+)') ? $matches[1] : ''
+              Avg    = ($text -match 'Avg:\s*([\d\.]+)')  ? $matches[1] : ''
+              Limit  = ($text -match 'Limit:\s*(\d+)')    ? $matches[1] : ''
+              Count  = ($text -match 'Count:\s*(\d+)')    ? $matches[1] : ''
+            }
+          }
+
+          $aot = Parse (Get-Content aot.txt -Raw)
+          $jit = Parse (Get-Content jit.txt -Raw)
+
+          $speedup = [math]::Round([double]$jit.Time / [double]$aot.Time, 2)
+
+          $sb = [System.Text.StringBuilder]::new()
+
+          $null = $sb.AppendLine("## 🧮 Primes Benchmark")
+          $null = $sb.AppendLine("")
+          $null = $sb.AppendLine("| Metric | NativeAOT | JIT |")
+          $null = $sb.AppendLine("|-------|-----------|-----|")
+          $null = $sb.AppendLine("| Passes | $($aot.Passes) | $($jit.Passes) |")
+          $null = $sb.AppendLine("| Total Time (s) | $($aot.Time) | $($jit.Time) |")
+          $null = $sb.AppendLine("| Avg / Pass (s) | $($aot.Avg) | $($jit.Avg) |")
+          $null = $sb.AppendLine("| Limit | $($aot.Limit) | $($jit.Limit) |")
+          $null = $sb.AppendLine("| Prime Count | $($aot.Count) | $($jit.Count) |")
+          $null = $sb.AppendLine("")
+          $null = $sb.AppendLine("**Speedup (JIT / AOT): $speedup×**")
+
+          $sb.ToString() | Out-File -Append $env:GITHUB_STEP_SUMMARY

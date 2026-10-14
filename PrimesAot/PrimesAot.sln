@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PrimesAot", "PrimesAot.csproj", "{D97FCB04-7278-D132-3897-4F5A66AECBB3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D97FCB04-7278-D132-3897-4F5A66AECBB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D97FCB04-7278-D132-3897-4F5A66AECBB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D97FCB04-7278-D132-3897-4F5A66AECBB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D97FCB04-7278-D132-3897-4F5A66AECBB3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8DF9AE0E-0D23-4913-A963-1782A0E5D8CF}
+	EndGlobalSection
+EndGlobal
