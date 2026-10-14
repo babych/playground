@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BasicKube.Application\BasicKube.Application.csproj" />
+    <ProjectReference Include="..\BasicKube.Domain\BasicKube.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

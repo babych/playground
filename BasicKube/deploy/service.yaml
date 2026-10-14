@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: basickube-service
+  namespace: basickube-ns
+spec:
+  selector:
+    app: basickube
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80

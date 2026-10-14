@@ -1,0 +1,25 @@
+dotnet:
+  - '**/*.cs'
+  - '**/*.fs'
+  - '**/*.vb'
+
+solution:
+  - '**/*.sln'
+
+
+tests:
+  - '**/*Test*.cs'
+  - '**/*Tests/*.cs'
+  - '**/*.spec.cs'
+
+infra:
+  - '**/*.yaml'
+  - '**/*.yml'
+  - '**/*.tf'
+  - '**/Dockerfile'
+
+ci/cd:
+  - '.github/**/*'
+
+docs:
+  - '**/*.md'

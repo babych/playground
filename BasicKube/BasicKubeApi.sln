@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.36105.23
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicKube.Api", "src\BasicKube.Api\BasicKube.Api.csproj", "{C1B769C2-4D45-408C-AF60-601EDD284D4C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicKube.Domain", "src\BasicKube.Domain\BasicKube.Domain.csproj", "{41E625CF-E8E2-4DA6-99AE-0A908CC238E8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicKube.Application", "src\BasicKube.Application\BasicKube.Application.csproj", "{CC27C72B-E8FE-486A-86E7-BB7E78307905}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicKube.Infrastructure", "src\BasicKube.Infrastructure\BasicKube.Infrastructure.csproj", "{182C2B26-263C-4D0A-8360-0862B05F446A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\cicd.yml = .github\workflows\cicd.yml
+		deploy\deployment.yaml = deploy\deployment.yaml
+		Dockerfile = Dockerfile
+		deploy\ingress.yaml = deploy\ingress.yaml
+		.github\workflows\label.yml = .github\workflows\label.yml
+		.github\labeler.yml = .github\labeler.yml
+		README.md = README.md
+		deploy\service.yaml = deploy\service.yaml
+		.github\workflows\summary.yml = .github\workflows\summary.yml
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicKube.Api.Tests", "BasicKube.Api.Test\BasicKube.Api.Tests.csproj", "{6C6AE332-4E98-4C2B-9926-8F23A17C77B7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C1B769C2-4D45-408C-AF60-601EDD284D4C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1B769C2-4D45-408C-AF60-601EDD284D4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1B769C2-4D45-408C-AF60-601EDD284D4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1B769C2-4D45-408C-AF60-601EDD284D4C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41E625CF-E8E2-4DA6-99AE-0A908CC238E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{41E625CF-E8E2-4DA6-99AE-0A908CC238E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41E625CF-E8E2-4DA6-99AE-0A908CC238E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{41E625CF-E8E2-4DA6-99AE-0A908CC238E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CC27C72B-E8FE-486A-86E7-BB7E78307905}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CC27C72B-E8FE-486A-86E7-BB7E78307905}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CC27C72B-E8FE-486A-86E7-BB7E78307905}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CC27C72B-E8FE-486A-86E7-BB7E78307905}.Release|Any CPU.Build.0 = Release|Any CPU
+		{182C2B26-263C-4D0A-8360-0862B05F446A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{182C2B26-263C-4D0A-8360-0862B05F446A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{182C2B26-263C-4D0A-8360-0862B05F446A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{182C2B26-263C-4D0A-8360-0862B05F446A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C6AE332-4E98-4C2B-9926-8F23A17C77B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C6AE332-4E98-4C2B-9926-8F23A17C77B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C6AE332-4E98-4C2B-9926-8F23A17C77B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C6AE332-4E98-4C2B-9926-8F23A17C77B7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6885F39B-C016-4F4B-A563-82540D9ABD53}
+	EndGlobalSection
+EndGlobal

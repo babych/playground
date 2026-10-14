@@ -1,0 +1,6 @@
+@BasicKubeApi_HostAddress = http://localhost:5253
+
+GET {{BasicKubeApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

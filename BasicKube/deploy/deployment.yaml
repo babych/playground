@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: basickube
+  namespace: basickube-ns
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: basickube
+  template:
+    metadata:
+      labels:
+        app: basickube
+    spec:
+      nodeSelector:
+        agentpool: cheappool
+      tolerations:
+      - key: "node.kubernetes.io/mode"
+        operator: "Equal"
+        value: "user"
+        effect: "NoSchedule"
+      containers:
+      - name: basickube
+        image: dbabych/basickube:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: ASPNETCORE_URLS
+          value: http://+:80

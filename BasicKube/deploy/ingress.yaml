@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: basickube-ingress
+  namespace: basickube-ns
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: basickube.172.199.209.31.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: basickube-service
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - basickube.172.199.209.31.nip.io
+      secretName: basickube-tls
