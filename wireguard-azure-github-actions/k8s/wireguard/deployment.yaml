@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wireguard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wireguard
+  template:
+    metadata:
+      labels:
+        app: wireguard
+    spec:
+      hostNetwork: true
+      containers:
+      - name: wireguard
+        image: linuxserver/wireguard
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: "Europe/Dublin"
+        - name: SERVERURL
+          value: "vpn.example.com"
+        - name: SERVERPORT
+          value: "51820"
+        - name: PEERS
+          value: "1"
+        - name: PEERDNS
+          value: "auto"
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "SYS_MODULE"]
+        volumeMounts:
+        - name: wireguard-config
+          mountPath: /config
+      volumes:
+      - name: wireguard-config
+        persistentVolumeClaim:
+          claimName: wireguard-pvc
