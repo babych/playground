@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atari Breakout (1976 Arcade 1-Shot Re-creation)</title>
+<meta property="og:title" content="Atari Breakout (1976 Arcade 1-Shot Re-creation)">
+<meta property="og:description" content="Authentic 1976 Atari Breakout arcade game recreated in a single hit. Pure HTML5 Canvas, Web Audio API synthesizer, CRT scanlines, and 60Hz fixed physics.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://babych.github.io/playground/breakout/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Atari Breakout (1976 Arcade 1-Shot Re-creation)">
+<meta name="twitter:description" content="Playable Atari Breakout arcade clone written in 1 shot in pure HTML5 Canvas & Web Audio API.">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(circle at center, #1b1d24 0%, #07080b 100%);
+    color: #fff;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    user-select: none;
+    overflow-x: hidden;
+    padding: 12px;
+  }
+  #arcade-bezel {
+    position: relative;
+    width: 100%;
+    max-width: 808px;
+    border: 4px solid #374151;
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 0 4px #111827;
+    overflow: hidden;
+    background: #000;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 800 / 600;
+    background: #000;
+    image-rendering: pixelated;
+    cursor: none;
+  }
+  .arcade-btn {
+    background: linear-gradient(180deg, #ea580c 0%, #9a3412 100%);
+    border: 2px solid #fdba74;
+    box-shadow: 0 4px 0 #7c2d12;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .arcade-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 #7c2d12;
+  }
+  .touch-serve-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(4px);
+    touch-action: manipulation;
+  }
+  .touch-serve-btn:active {
+    background: rgba(251, 146, 60, 0.4);
+    border-color: #fb923c;
+  }
+</style>
+</head>
+<body>
+
+<!-- Top Header & Quick Actions -->
+<div class="w-full max-w-[808px] flex flex-wrap items-center justify-between gap-2 mb-2 px-1">
+  <div class="flex items-center gap-2">
+    <span class="inline-block w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
+    <h1 class="text-sm sm:text-base font-bold tracking-wider text-amber-400">ATARI BREAKOUT • 1976 ARCADE (60Hz LOCK)</h1>
+  </div>
+  <div class="flex items-center gap-2">
+    <button id="btn-scanlines" class="px-3 py-1 rounded text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition">
+      CRT: ON
+    </button>
+    <button id="btn-mute" class="px-3 py-1 rounded text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition">
+      SOUND: ON
+    </button>
+    <button id="btn-reset" class="arcade-btn px-3 py-1 rounded text-xs font-bold text-white">
+      RESTART (R)
+    </button>
+  </div>
+</div>
+
+<!-- Main Game Container -->
+<div id="arcade-bezel">
+  <canvas id="breakout" width="800" height="600"></canvas>
+</div>
+
+<!-- Info & Controls Bar -->
+<div class="w-full max-w-[808px] mt-3 px-3 py-2 rounded-lg bg-slate-900/90 border border-slate-800 text-xs sm:text-sm text-slate-300 flex flex-wrap items-center justify-between gap-2">
+  <div>
+    <span class="text-amber-400 font-bold">PADDLE:</span> Mouse / Touch Drag / Arrows / A-D &nbsp;|&nbsp;
+    <span class="text-amber-400 font-bold">SERVE:</span> Click / Space &nbsp;|&nbsp;
+    <span class="text-amber-400 font-bold">PAUSE:</span> P
+  </div>
+  <div class="text-amber-300 font-semibold">
+    Break through the top red wall to trigger Breakout &amp; half-paddle challenge!
+  </div>
+</div>
+
+<!-- Mobile Touch Action -->
+<div class="w-full max-w-[808px] mt-2 sm:hidden flex gap-2 select-none">
+  <button id="btn-touch-serve" class="touch-serve-btn w-full py-4 rounded-xl font-bold text-base text-amber-300">
+    TAP TO SERVE / LAUNCH BALL
+  </button>
+</div>
+
+<!-- Attribution & Source -->
+<div class="w-full max-w-[808px] mt-2 text-center text-xs text-slate-500">
+  Recreated in 1 hit by <span class="text-slate-400 font-semibold">Antigravity AI</span> &nbsp;|&nbsp;
+  <a href="https://github.com/babych/playground/tree/main/breakout" target="_blank" class="text-sky-400 hover:underline">GitHub Source</a>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('breakout');
+  const ctx = canvas.getContext('2d');
+
+  // --- 8-BIT ATARI AUDIO SYNTHESIZER ---
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx = null;
+  let soundMuted = false;
+  let crtScanlines = true;
+
+  function initAudio() {
+    if (!audioCtx && AudioCtx) audioCtx = new AudioCtx();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playTone(freq, type = 'square', duration = 0.08, vol = 0.15, slideTo = null) {
+    if (soundMuted || !audioCtx) return;
+    try {
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if (slideTo) osc.frequency.linearRampToValueAtTime(slideTo, t + duration);
+      gain.gain.setValueAtTime(vol, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + duration);
+    } catch (e) {}
+  }
+
+  const SFX = {
+    paddle: () => playTone(146.83, 'square', 0.09, 0.22, 110), // D3 thud
+    wall: () => playTone(220, 'square', 0.06, 0.16),           // A3 click
+    ceiling: () => playTone(587.33, 'square', 0.08, 0.18),      // D5 ping
+    brickRow: (rowIdx) => {
+      // 8 rows: pitches climb authentically from low yellow to high red
+      const freqs = [523.25, 523.25, 440.00, 440.00, 349.23, 349.23, 261.63, 261.63];
+      playTone(freqs[rowIdx] || 330, 'square', 0.08, 0.20);
+    },
+    serve: () => playTone(330, 'square', 0.12, 0.18, 440),
+    ballLost: () => {
+      playTone(196, 'sawtooth', 0.28, 0.22, 70);
+    },
+    breakout: () => {
+      const notes = [440, 554, 659, 880];
+      notes.forEach((n, i) => {
+        setTimeout(() => playTone(n, 'square', 0.1, 0.18), i * 70);
+      });
+    },
+    levelClear: () => {
+      const fanfare = [392, 523, 659, 784, 1046];
+      fanfare.forEach((n, i) => {
+        setTimeout(() => playTone(n, 'square', 0.14, 0.20), i * 90);
+      });
+    }
+  };
+
+  // --- GAME CONSTANTS ---
+  const CANVAS_WIDTH = 800;
+  const CANVAS_HEIGHT = 600;
+
+  const BRICK_ROWS = 8;
+  const BRICK_COLS = 14;
+  const BRICK_TOP = 130;
+  const BRICK_HEIGHT = 16;
+  const BRICK_PADDING_X = 4;
+  const BRICK_PADDING_Y = 4;
+  const TOTAL_BRICK_WIDTH = CANVAS_WIDTH - 24; // 12px margin each side
+  const BRICK_WIDTH = Math.floor((TOTAL_BRICK_WIDTH - (BRICK_COLS - 1) * BRICK_PADDING_X) / BRICK_COLS);
+  const OFFSET_LEFT = Math.floor((CANVAS_WIDTH - (BRICK_COLS * BRICK_WIDTH + (BRICK_COLS - 1) * BRICK_PADDING_X)) / 2);
+
+  // Row Colors and Point Values (Classic Atari 1976 rules)
+  // Rows 0-1: Red (7 pts)
+  // Rows 2-3: Orange (7 pts)
+  // Rows 4-5: Green (4 pts)
+  // Rows 6-7: Yellow (1 pt)
+  const ROW_CONFIG = [
+    { color: '#e53935', glow: '#ff6f60', points: 7, name: 'RED' },
+    { color: '#e53935', glow: '#ff6f60', points: 7, name: 'RED' },
+    { color: '#fb8c00', glow: '#ffbd45', points: 7, name: 'ORANGE' },
+    { color: '#fb8c00', glow: '#ffbd45', points: 7, name: 'ORANGE' },
+    { color: '#43a047', glow: '#76d275', points: 4, name: 'GREEN' },
+    { color: '#43a047', glow: '#76d275', points: 4, name: 'GREEN' },
+    { color: '#fdd835', glow: '#ffff72', points: 1, name: 'YELLOW' },
+    { color: '#fdd835', glow: '#ffff72', points: 1, name: 'YELLOW' }
+  ];
+
+  // --- GAME STATE ---
+  let score = 0;
+  let highScore = parseInt(localStorage.getItem('breakout_highscore') || '0', 10);
+  let ballsLeft = 3;
+  let round = 1;
+  let gameState = 'SERVE'; // 'SERVE', 'PLAYING', 'ROUND_CLEAR', 'GAME_OVER', 'PAUSED'
+  let previousState = 'SERVE';
+  let screenShake = 0;
+
+  // Authentic Paddle Dimensions
+  const PADDLE_HEIGHT = 14;
+  const PADDLE_FULL_WIDTH = 96;
+  const PADDLE_SHRUNK_WIDTH = 48; // Half paddle after hitting red wall
+  let paddleWidth = PADDLE_FULL_WIDTH;
+  let paddleX = (CANVAS_WIDTH - paddleWidth) / 2;
+  const PADDLE_Y = 540;
+  const PADDLE_SPEED = 9.0;
+  let paddleTargetX = paddleX;
+
+  // Ball
+  const BALL_SIZE = 12;
+  let ballX = 0;
+  let ballY = 0;
+  let ballVx = 0;
+  let ballVy = 0;
+  let baseSpeed = 6.2;
+  let currentSpeed = baseSpeed;
+  let hitStreak = 0;
+  let orangeRowHit = false;
+  let redRowHit = false;
+  let breakoutTriggered = false;
+
+  // Bricks Array: 8 rows x 14 cols
+  let bricks = [];
+  let remainingBricks = 0;
+
+  // Particles & Visuals
+  let particles = [];
+  let floatingTexts = [];
+
+  function initBricks() {
+    bricks = [];
+    remainingBricks = 0;
+    for (let r = 0; r < BRICK_ROWS; r++) {
+      bricks[r] = [];
+      for (let c = 0; c < BRICK_COLS; c++) {
+        bricks[r][c] = {
+          alive: true,
+          x: OFFSET_LEFT + c * (BRICK_WIDTH + BRICK_PADDING_X),
+          y: BRICK_TOP + r * (BRICK_HEIGHT + BRICK_PADDING_Y),
+          w: BRICK_WIDTH,
+          h: BRICK_HEIGHT,
+          row: r
+        };
+        remainingBricks++;
+      }
+    }
+  }
+
+  function resetBall() {
+    ballX = paddleX + paddleWidth / 2 - BALL_SIZE / 2;
+    ballY = PADDLE_Y - BALL_SIZE - 2;
+    ballVx = 0;
+    ballVy = 0;
+    currentSpeed = baseSpeed;
+    hitStreak = 0;
+    gameState = 'SERVE';
+  }
+
+  function resetGame() {
+    score = 0;
+    ballsLeft = 3;
+    round = 1;
+    baseSpeed = 6.2;
+    paddleWidth = PADDLE_FULL_WIDTH;
+    orangeRowHit = false;
+    redRowHit = false;
+    breakoutTriggered = false;
+    particles = [];
+    floatingTexts = [];
+    initBricks();
+    resetBall();
+  }
+
+  function startNextRound() {
+    round++;
+    baseSpeed = Math.min(8.5, baseSpeed + 0.4);
+    orangeRowHit = false;
+    redRowHit = false;
+    breakoutTriggered = false;
+    paddleWidth = PADDLE_FULL_WIDTH;
+    initBricks();
+    resetBall();
+    SFX.levelClear();
+  }
+
+  function serveBall() {
+    if (gameState !== 'SERVE') return;
+    initAudio();
+    gameState = 'PLAYING';
+    currentSpeed = baseSpeed;
+    // Launch angle slightly randomized
+    const initialAngle = (Math.random() * 0.4 + 0.3) * (Math.random() > 0.5 ? 1 : -1);
+    ballVx = currentSpeed * Math.sin(initialAngle);
+    ballVy = -Math.abs(currentSpeed * Math.cos(initialAngle));
+    SFX.serve();
+  }
+
+  // --- INPUT HANDLING ---
+  const keys = {};
+  let mouseControlled = false;
+
+  window.addEventListener('keydown', (e) => {
+    initAudio();
+    keys[e.code] = true;
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (gameState === 'SERVE') serveBall();
+      else if (gameState === 'GAME_OVER') resetGame();
+      else if (gameState === 'ROUND_CLEAR') startNextRound();
+    }
+    if (e.code === 'KeyR') {
+      resetGame();
+    }
+    if (e.code === 'KeyP') {
+      if (gameState === 'PLAYING') {
+        previousState = gameState;
+        gameState = 'PAUSED';
+      } else if (gameState === 'PAUSED') {
+        gameState = previousState;
+      }
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    keys[e.code] = false;
+  });
+
+  // Mouse & Touch tracking relative to canvas coordinates
+  function updatePaddleWithClientX(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = CANVAS_WIDTH / rect.width;
+    const canvasMouseX = (clientX - rect.left) * scaleX;
+    paddleX = Math.max(12, Math.min(CANVAS_WIDTH - 12 - paddleWidth, canvasMouseX - paddleWidth / 2));
+    mouseControlled = true;
+    if (gameState === 'SERVE') {
+      ballX = paddleX + paddleWidth / 2 - BALL_SIZE / 2;
+    }
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    updatePaddleWithClientX(e.clientX);
+  });
+
+  canvas.addEventListener('click', () => {
+    initAudio();
+    if (gameState === 'SERVE') serveBall();
+    else if (gameState === 'GAME_OVER') resetGame();
+    else if (gameState === 'ROUND_CLEAR') startNextRound();
+  });
+
+  // Touch handlers
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length > 0) {
+      updatePaddleWithClientX(e.touches[0].clientX);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    initAudio();
+    if (e.touches.length > 0) {
+      updatePaddleWithClientX(e.touches[0].clientX);
+    }
+    if (gameState === 'SERVE') serveBall();
+    else if (gameState === 'GAME_OVER') resetGame();
+  }, { passive: false });
+
+  document.getElementById('btn-touch-serve').addEventListener('click', () => {
+    initAudio();
+    if (gameState === 'SERVE') serveBall();
+    else if (gameState === 'GAME_OVER') resetGame();
+    else if (gameState === 'ROUND_CLEAR') startNextRound();
+  });
+
+  // Top Bar Buttons
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    initAudio();
+    resetGame();
+  });
+
+  const muteBtn = document.getElementById('btn-mute');
+  muteBtn.addEventListener('click', () => {
+    soundMuted = !soundMuted;
+    muteBtn.textContent = soundMuted ? 'SOUND: OFF' : 'SOUND: ON';
+  });
+
+  const scanlineBtn = document.getElementById('btn-scanlines');
+  scanlineBtn.addEventListener('click', () => {
+    crtScanlines = !crtScanlines;
+    scanlineBtn.textContent = crtScanlines ? 'CRT: ON' : 'CRT: OFF';
+  });
+
+  // Spawn visual particle explosions on brick break
+  function spawnBrickParticles(x, y, color) {
+    const count = 14;
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 3.8 + 1.2;
+      particles.push({
+        x: x + BRICK_WIDTH / 2,
+        y: y + BRICK_HEIGHT / 2,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: Math.random() * 3 + 2,
+        color: color,
+        life: 28,
+        maxLife: 28
+      });
+    }
+  }
+
+  function addFloatingText(text, x, y, color = '#ffffff') {
+    floatingTexts.push({ text, x, y, vy: -1.2, life: 40, color });
+  }
+
+  // --- RECTANGLE AABB COLLISION RESOLVER ---
+  function checkBallBrickCollision(brick) {
+    // Closest point on brick to ball center
+    const ballCenterX = ballX + BALL_SIZE / 2;
+    const ballCenterY = ballY + BALL_SIZE / 2;
+
+    const closestX = Math.max(brick.x, Math.min(ballCenterX, brick.x + brick.w));
+    const closestY = Math.max(brick.y, Math.min(ballCenterY, brick.y + brick.h));
+
+    const distX = ballCenterX - closestX;
+    const distY = ballCenterY - closestY;
+    const distanceSq = (distX * distX) + (distY * distY);
+
+    if (distanceSq < (BALL_SIZE / 2) * (BALL_SIZE / 2)) {
+      // Determine penetration depth to decide horizontal vs vertical rebound
+      const overlapX = (BALL_SIZE / 2) - Math.abs(distX);
+      const overlapY = (BALL_SIZE / 2) - Math.abs(distY);
+
+      if (overlapX < overlapY) {
+        ballVx = -ballVx;
+        ballX += (distX > 0 ? overlapX : -overlapX);
+      } else {
+        ballVy = -ballVy;
+        ballY += (distY > 0 ? overlapY : -overlapY);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // --- FIXED 60Hz PHYSICS UPDATE ---
+  function update() {
+    if (screenShake > 0) screenShake--;
+
+    // Update Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.12; // mild gravity
+      p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    // Update Floating Score Texts
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      const ft = floatingTexts[i];
+      ft.y += ft.vy;
+      ft.life--;
+      if (ft.life <= 0) floatingTexts.splice(i, 1);
+    }
+
+    if (gameState === 'PAUSED') return;
+
+    // Keyboard paddle control
+    if (!mouseControlled || keys['ArrowLeft'] || keys['ArrowRight'] || keys['KeyA'] || keys['KeyD']) {
+      if (keys['ArrowLeft'] || keys['KeyA']) {
+        paddleX = Math.max(12, paddleX - PADDLE_SPEED);
+      }
+      if (keys['ArrowRight'] || keys['KeyD']) {
+        paddleX = Math.min(CANVAS_WIDTH - 12 - paddleWidth, paddleX + PADDLE_SPEED);
+      }
+    }
+
+    // Ball on paddle when serving
+    if (gameState === 'SERVE') {
+      ballX = paddleX + paddleWidth / 2 - BALL_SIZE / 2;
+      ballY = PADDLE_Y - BALL_SIZE - 2;
+      return;
+    }
+
+    if (gameState !== 'PLAYING') return;
+
+    // --- CONTINUOUS SUB-STEPPING (4 sub-steps per frame) ---
+    // Prevents high-speed tunneling through bricks or paddle
+    const subSteps = 4;
+    const dtVx = ballVx / subSteps;
+    const dtVy = ballVy / subSteps;
+
+    for (let step = 0; step < subSteps; step++) {
+      ballX += dtVx;
+      ballY += dtVy;
+
+      // Left and Right wall collisions (12px border walls)
+      if (ballX <= 12) {
+        ballX = 12;
+        ballVx = Math.abs(ballVx);
+        SFX.wall();
+      } else if (ballX + BALL_SIZE >= CANVAS_WIDTH - 12) {
+        ballX = CANVAS_WIDTH - 12 - BALL_SIZE;
+        ballVx = -Math.abs(ballVx);
+        SFX.wall();
+      }
+
+      // Ceiling collision (Top red zone & breakout barrier at y = 50)
+      if (ballY <= 50) {
+        ballY = 50;
+        ballVy = Math.abs(ballVy);
+        SFX.ceiling();
+
+        // If player breaches the ceiling: Breakout trigger!
+        if (!breakoutTriggered) {
+          breakoutTriggered = true;
+          paddleWidth = PADDLE_SHRUNK_WIDTH; // Authentic Atari rule: paddle cut in half!
+          addFloatingText('★ BREAKOUT! PADDLE SHRUNK ★', CANVAS_WIDTH / 2 - 120, 100, '#ff3b30');
+          SFX.breakout();
+        }
+      }
+
+      // Bottom pit: Ball Lost
+      if (ballY >= CANVAS_HEIGHT) {
+        ballsLeft--;
+        SFX.ballLost();
+        if (ballsLeft <= 0) {
+          gameState = 'GAME_OVER';
+          if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('breakout_highscore', highScore);
+          }
+        } else {
+          resetBall();
+        }
+        return;
+      }
+
+      // --- PADDLE COLLISION ---
+      if (ballVy > 0 &&
+          ballY + BALL_SIZE >= PADDLE_Y &&
+          ballY <= PADDLE_Y + PADDLE_HEIGHT &&
+          ballX + BALL_SIZE >= paddleX &&
+          ballX <= paddleX + paddleWidth) {
+
+        hitStreak++;
+        SFX.paddle();
+
+        // Calculate bounce angle based on distance from paddle center
+        // Center hits bounce straight up; edge hits bounce outward at up to 68 degrees
+        const paddleCenter = paddleX + paddleWidth / 2;
+        const ballCenter = ballX + BALL_SIZE / 2;
+        const normalizedHit = Math.max(-1, Math.min(1, (ballCenter - paddleCenter) / (paddleWidth / 2)));
+        const maxBounceAngle = (68 * Math.PI) / 180;
+        const bounceAngle = normalizedHit * maxBounceAngle;
+
+        // Speed increases after 4 hits and 12 hits (Classic Atari rules)
+        if (hitStreak === 4) {
+          currentSpeed = Math.min(11, currentSpeed + 0.8);
+          addFloatingText('SPEED UP!', paddleX + paddleWidth / 2 - 30, PADDLE_Y - 20, '#ffcc00');
+        } else if (hitStreak === 12) {
+          currentSpeed = Math.min(12.5, currentSpeed + 1.2);
+          addFloatingText('MAX SPEED!', paddleX + paddleWidth / 2 - 35, PADDLE_Y - 20, '#ff3b30');
+        }
+
+        ballVx = currentSpeed * Math.sin(bounceAngle);
+        ballVy = -Math.abs(currentSpeed * Math.cos(bounceAngle));
+        ballY = PADDLE_Y - BALL_SIZE - 1;
+      }
+
+      // --- BRICK COLLISIONS ---
+      let hitBrickThisSubstep = false;
+      for (let r = 0; r < BRICK_ROWS; r++) {
+        for (let c = 0; c < BRICK_COLS; c++) {
+          const b = bricks[r][c];
+          if (!b.alive) continue;
+
+          if (checkBallBrickCollision(b)) {
+            b.alive = false;
+            remainingBricks--;
+            hitBrickThisSubstep = true;
+
+            const cfg = ROW_CONFIG[r];
+            score += cfg.points;
+            if (score > highScore) highScore = score;
+
+            SFX.brickRow(r);
+            spawnBrickParticles(b.x, b.y, cfg.glow);
+            screenShake = Math.max(screenShake, r < 2 ? 4 : 2);
+            addFloatingText(`+${cfg.points}`, b.x + 8, b.y - 6, cfg.glow);
+
+            // Speed milestones for hitting orange or red rows
+            if (r <= 3 && !orangeRowHit) {
+              orangeRowHit = true;
+              currentSpeed = Math.min(11.5, currentSpeed + 0.9);
+              addFloatingText('ORANGE SPEED UP!', CANVAS_WIDTH / 2 - 60, 110, '#fb8c00');
+            }
+            if (r <= 1 && !redRowHit) {
+              redRowHit = true;
+              currentSpeed = Math.min(12.8, currentSpeed + 1.2);
+              addFloatingText('RED MAX ACCEL!', CANVAS_WIDTH / 2 - 55, 110, '#e53935');
+            }
+
+            // Check Level / Round Clear
+            if (remainingBricks <= 0) {
+              score += 1000;
+              gameState = 'ROUND_CLEAR';
+              SFX.levelClear();
+              return;
+            }
+            break;
+          }
+        }
+        if (hitBrickThisSubstep) break;
+      }
+    }
+  }
+
+  // --- RENDERING ---
+  function draw() {
+    ctx.save();
+
+    // Screen Shake effect
+    if (screenShake > 0) {
+      const shakeX = (Math.random() - 0.5) * screenShake * 1.5;
+      const shakeY = (Math.random() - 0.5) * screenShake * 1.5;
+      ctx.translate(shakeX, shakeY);
+    }
+
+    // Clear background
+    ctx.fillStyle = '#05070a';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Side Borders (Classic white arcade frame walls)
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(0, 50, 12, CANVAS_HEIGHT - 50);
+    ctx.fillRect(CANVAS_WIDTH - 12, 50, 12, CANVAS_HEIGHT - 50);
+    ctx.fillRect(0, 42, CANVAS_WIDTH, 10);
+
+    // --- SCOREBOARD / TOP HUD ---
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 24px "Courier New", monospace';
+
+    // 1UP / SCORE
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.fillText('1UP', 36, 22);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px "Courier New", monospace';
+    ctx.fillText(String(score).padStart(4, '0'), 36, 42);
+
+    // HIGH SCORE
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.fillText('HIGH SCORE', 340, 22);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 24px "Courier New", monospace';
+    ctx.fillText(String(highScore).padStart(4, '0'), 365, 42);
+
+    // BALLS REMAINING
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.fillText('BALLS', 680, 22);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 24px "Courier New", monospace';
+    ctx.fillText(String(Math.max(0, ballsLeft)), 700, 42);
+
+    // ROUND
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.fillText(`R-${round}`, 560, 36);
+
+    // --- DRAW BRICKS ---
+    for (let r = 0; r < BRICK_ROWS; r++) {
+      const cfg = ROW_CONFIG[r];
+      for (let c = 0; c < BRICK_COLS; c++) {
+        const b = bricks[r][c];
+        if (!b.alive) continue;
+
+        // Brick body
+        ctx.fillStyle = cfg.color;
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+
+        // Subtle 3D arcade bevel top & left highlight
+        ctx.fillStyle = cfg.glow;
+        ctx.fillRect(b.x, b.y, b.w, 2);
+        ctx.fillRect(b.x, b.y, 2, b.h);
+
+        // Shadow bottom
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(b.x, b.y + b.h - 2, b.w, 2);
+        ctx.fillRect(b.x + b.w - 2, b.y, 2, b.h);
+      }
+    }
+
+    // --- DRAW PADDLE ---
+    ctx.fillStyle = breakoutTriggered ? '#f43f5e' : '#38bdf8';
+    ctx.fillRect(paddleX, PADDLE_Y, paddleWidth, PADDLE_HEIGHT);
+
+    // Paddle highlights
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(paddleX, PADDLE_Y, paddleWidth, 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(paddleX, PADDLE_Y + PADDLE_HEIGHT - 2, paddleWidth, 2);
+
+    // --- DRAW BALL ---
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(ballX, ballY, BALL_SIZE, BALL_SIZE);
+
+    // Subtle ball motion trail when at high speed
+    if (currentSpeed > 8 && gameState === 'PLAYING') {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillRect(ballX - ballVx * 0.7, ballY - ballVy * 0.7, BALL_SIZE, BALL_SIZE);
+    }
+
+    // --- DRAW PARTICLES ---
+    for (const p of particles) {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.life / p.maxLife;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    }
+    ctx.globalAlpha = 1.0;
+
+    // --- DRAW FLOATING TEXTS ---
+    ctx.font = 'bold 15px "Courier New", monospace';
+    for (const ft of floatingTexts) {
+      ctx.fillStyle = ft.color;
+      ctx.globalAlpha = Math.min(1, ft.life / 20);
+      ctx.fillText(ft.text, ft.x, ft.y);
+    }
+    ctx.globalAlpha = 1.0;
+
+    // --- OVERLAY MESSAGES ---
+    if (gameState === 'SERVE') {
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(160, 360, 480, 50);
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 18px "Courier New", monospace';
+      ctx.fillText('PRESS SPACE OR CLICK TO SERVE BALL', 190, 392);
+    } else if (gameState === 'PAUSED') {
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 36px "Courier New", monospace';
+      ctx.fillText('PAUSED', 330, 300);
+      ctx.font = '16px "Courier New", monospace';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('PRESS P TO RESUME', 315, 340);
+    } else if (gameState === 'ROUND_CLEAR') {
+      ctx.fillStyle = 'rgba(0,0,0,0.82)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 34px "Courier New", monospace';
+      ctx.fillText('ROUND CLEAR!', 280, 270);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 20px "Courier New", monospace';
+      ctx.fillText('+1000 BONUS POINTS', 285, 315);
+      ctx.font = '16px "Courier New", monospace';
+      ctx.fillStyle = '#fde047';
+      ctx.fillText('PRESS SPACE OR CLICK FOR NEXT ROUND', 215, 365);
+    } else if (gameState === 'GAME_OVER') {
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 38px "Courier New", monospace';
+      ctx.fillText('GAME OVER', 290, 260);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 20px "Courier New", monospace';
+      ctx.fillText(`FINAL SCORE: ${score}`, 300, 310);
+      ctx.font = '16px "Courier New", monospace';
+      ctx.fillStyle = '#fde047';
+      ctx.fillText('PRESS SPACE OR RESTART (R) TO PLAY AGAIN', 185, 360);
+    }
+
+    // --- CRT SCANLINES EFFECT ---
+    if (crtScanlines) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+      for (let y = 0; y < CANVAS_HEIGHT; y += 3) {
+        ctx.fillRect(0, y, CANVAS_WIDTH, 1.2);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // --- FIXED 60 FPS ACCUMULATOR LOOP ---
+  const STEP_MS = 1000 / 60;
+  let lastTime = performance.now();
+  let accumulator = 0;
+
+  function gameLoop(now) {
+    let delta = now - lastTime;
+    lastTime = now;
+    if (delta > 150) delta = 150;
+
+    accumulator += delta;
+    while (accumulator >= STEP_MS) {
+      update();
+      accumulator -= STEP_MS;
+    }
+
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Initialize and run
+  resetGame();
+  requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>
