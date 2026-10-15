@@ -1,6 +1,9 @@
-﻿# Legacy Public Projects Archive
+# Legacy Public Projects Archive
 
 Consolidated monorepo containing historical public experiments, utilities, and projects with full original commit histories preserved in dedicated subdirectories.
+
+## 🎮 Live Demos (GitHub Pages)
+- **[Play Super Mario Bros. (Gemini Argon 1-Shot)](https://babych.github.io/legacy-projects/super-mario/)** — Complete World 1-1 written from scratch in one single hit by Gemini Argon (Pure HTML5 Canvas + Web Audio API).
 
 ## Included Projects
 - **headcases** - Diagnostic/test cases
@@ -14,3 +17,4 @@ Consolidated monorepo containing historical public experiments, utilities, and p
 - **DurablePerfTest.AzF** - Azure Functions Durable performance test harness
 - **AdoDataMapper** - Lightweight ADO.NET DataMapper library
 - **html5_jo_sample** - Historical HTML5 mobile framework sample (2013)
+
