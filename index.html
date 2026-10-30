@@ -3,64 +3,92 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Legacy Projects Archive | Dmytro Babych</title>
+  <title>Interactive Playground & Demos | Dmytro Babych</title>
   <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --card-border: #30363d;
+      --text: #c9d1d9;
+      --accent: #58a6ff;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
-      max-width: 800px;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 850px;
       margin: 40px auto;
       padding: 0 20px;
       line-height: 1.6;
     }
-    h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
-    h2 { color: #f0f6fc; margin-top: 30px; }
+    h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-bottom: 8px; }
+    .subtitle { color: #8b949e; font-size: 15px; margin-bottom: 30px; }
+    h2 { color: #f0f6fc; margin-top: 36px; border-bottom: 1px solid #21262d; padding-bottom: 6px; }
     a { color: #58a6ff; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .card {
       background: #161b22;
       border: 1px solid #30363d;
-      border-radius: 8px;
-      padding: 20px;
+      border-radius: 10px;
+      padding: 22px;
       margin: 20px 0;
     }
-    .featured {
+    .featured-mario {
       border-color: #fbd000;
-      box-shadow: 0 0 15px rgba(251, 208, 0, 0.2);
+      box-shadow: 0 0 16px rgba(251, 208, 0, 0.2);
+    }
+    .featured-breakout {
+      border-color: #fb923c;
+      box-shadow: 0 0 16px rgba(251, 146, 60, 0.2);
+    }
+    .featured-vibration {
+      border-color: #3fb950;
+      box-shadow: 0 0 16px rgba(63, 185, 80, 0.2);
     }
     .btn {
       display: inline-block;
-      background: #238636;
       color: #ffffff;
       padding: 10px 20px;
       border-radius: 6px;
       font-weight: bold;
-      margin-top: 10px;
+      margin-top: 12px;
       text-decoration: none;
     }
-    .btn:hover {
-      background: #2ea043;
-      text-decoration: none;
-    }
+    .btn-mario { background: #238636; }
+    .btn-mario:hover { background: #2ea043; text-decoration: none; }
+    .btn-breakout { background: #ea580c; }
+    .btn-breakout:hover { background: #f97316; text-decoration: none; }
+    .btn-vibration { background: #1f6feb; }
+    .btn-vibration:hover { background: #388bfd; text-decoration: none; }
+    .back-nav { margin-bottom: 24px; font-size: 14px; }
     ul { list-style-type: square; padding-left: 20px; }
-    li { margin-bottom: 8px; }
+    li { margin-bottom: 10px; }
   </style>
 </head>
 <body>
-  <h1>Legacy Projects & Demos</h1>
-  <p>Consolidated archive of public experiments, utilities, and live browser demos.</p>
-
-  <div class="card featured">
-    <h2 style="margin-top:0; color:#fbd000;">🎮 Super Mario Bros. (1985 NES World 1-1)</h2>
-    <p>Complete playable World 1-1 generated in a <b>single hit</b> by <b>Gemini Argon</b>. Built entirely in pure HTML5 Canvas with procedural Web Audio API sounds, enemies, physics, flagpole, and castle mechanics.</p>
-    <a class="btn" href="super-mario/">▶ Play Super Mario Bros.</a>
+  <div class="back-nav">
+    <a href="https://babych.github.io/">&larr; Back to Portfolio (babych.github.io)</a>
   </div>
 
-  <div class="card" style="border-color: #fb923c; box-shadow: 0 0 15px rgba(251, 146, 60, 0.2);">
+  <h1>Playground & Interactive Demos</h1>
+  <p class="subtitle">Curated live browser demos, 1-shot procedural game engines, and signal processing web experiments.</p>
+
+  <div class="card featured-vibration">
+    <h2 style="margin-top:0; color:#3fb950;">🚗 Car Vibration & Pulse Analyzer (FFT AI)</h2>
+    <p>Real-time vehicle vibration diagnostics using accelerometer spectral analysis (Hanning window, FFT, kinematic wheel rotation modeling) and resting pulse seismocardiography directly in mobile browsers.</p>
+    <a class="btn btn-vibration" href="https://car-vibration-analyzer.memory1024.workers.dev" target="_blank">🚀 Launch Application</a>
+  </div>
+
+  <div class="card featured-mario">
+    <h2 style="margin-top:0; color:#fbd000;">🎮 Super Mario Bros. (1985 NES World 1-1)</h2>
+    <p>Complete playable World 1-1 generated in a <b>single hit</b> by <b>Gemini Argon</b>. Built entirely in pure HTML5 Canvas with procedural Web Audio API sounds, Goombas, Koopas, physics, flagpole, and castle mechanics.</p>
+    <a class="btn btn-mario" href="super-mario/">▶ Play Super Mario Bros.</a>
+  </div>
+
+  <div class="card featured-breakout">
     <h2 style="margin-top:0; color:#fb923c;">🕹️ Atari Breakout (1976 Arcade 1-Shot)</h2>
     <p>Authentic 1976 arcade classic recreated in a <b>single hit</b> by <b>Antigravity AI</b>. Built in pure HTML5 Canvas with continuous sub-step collision physics, segmented paddle angles, ceiling breakout trigger, CRT scanlines, and 8-bit procedural Web Audio.</p>
-    <a class="btn" style="background:#ea580c;" href="breakout/">▶ Play Atari Breakout</a>
+    <a class="btn btn-breakout" href="breakout/">▶ Play Atari Breakout</a>
   </div>
 
   <h2>Archived Source Repositories</h2>
@@ -68,18 +96,9 @@
     <li><a href="https://github.com/babych/playground/tree/main/breakout">breakout</a> &mdash; Atari Breakout 1976 arcade source (1-shot)</li>
     <li><a href="https://github.com/babych/playground/tree/main/super-mario">super-mario</a> &mdash; Gemini Argon 1-shot Super Mario NES source</li>
     <li><a href="https://github.com/babych/playground/tree/main/bee-book">bee-book</a> &mdash; Ukrainian translation of A.I. Root's ABC and XYZ of Bee Culture (Typst)</li>
+    <li><a href="https://github.com/babych/playground/tree/main/wireguard-azure-github-actions">wireguard-azure-github-actions</a> &mdash; Automated WireGuard deployment pipeline</li>
     <li><a href="https://github.com/babych/playground/tree/main/PascalCompilerPy">PascalCompilerPy</a> &mdash; Pascal compiler in Python</li>
-    <li><a href="https://github.com/babych/playground/tree/main/FlaskPortalPy">FlaskPortalPy</a> &mdash; Python Flask portal project</li>
-    <li><a href="https://github.com/babych/playground/tree/main/PrimesAot">PrimesAot</a> &mdash; .NET AOT Prime numbers generation</li>
     <li><a href="https://github.com/babych/playground/tree/main/BasicKube">BasicKube</a> &mdash; .NET API with MediatR & K8s deployment</li>
-    <li><a href="https://github.com/babych/playground/tree/main/BasicKubePy">BasicKubePy</a> &mdash; Python API deployment into K8s</li>
-    <li><a href="https://github.com/babych/playground/tree/main/wireguard-azure-github-actions">wireguard-azure-github-actions</a> &mdash; WireGuard deployment automation</li>
-    <li><a href="https://github.com/babych/playground/tree/main/DurablePerfTest.AzF">DurablePerfTest.AzF</a> &mdash; Azure Functions Durable performance test harness</li>
-    <li><a href="https://github.com/babych/playground/tree/main/AdoDataMapper">AdoDataMapper</a> &mdash; Lightweight ADO.NET DataMapper library</li>
-    <li><a href="https://github.com/babych/playground/tree/main/headcases">headcases</a> &mdash; Diagnostic / test cases</li>
-    <li><a href="https://github.com/babych/playground/tree/main/html5_jo_sample">html5_jo_sample</a> &mdash; HTML5 mobile sample (2013)</li>
   </ul>
 </body>
 </html>
-
-
