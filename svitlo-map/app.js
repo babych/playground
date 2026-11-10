@@ -29,11 +29,10 @@ function initMap() {
 
   L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-  // Темна базова підкладка CartoDB Dark Matter
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 18
+  // Темна преміум-підкладка ESRI Dark Gray Canvas (100% безкоштовно, без API-ключа та без водяних знаків)
+  L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '&copy; Esri, OpenStreetMap contributors',
+    maxZoom: 16
   }).addTo(map);
 
   // Створюємо високопродуктивний Canvas шар для статичного сяйва
