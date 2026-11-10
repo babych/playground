@@ -248,6 +248,21 @@ body, html {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.pill-github {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: #94a3b8;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding-left: 10px;
+  margin-left: 4px;
+}
+
+.pill-github:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .pill.active {
   background: rgba(255, 208, 0, 0.15);
   border-color: rgba(255, 208, 0, 0.35);
