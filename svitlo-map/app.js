@@ -6,7 +6,7 @@
 let map;
 let canvasOverlay;
 let ctx;
-let activeDataset = 'hromadas'; // 'hromadas' (1315 ТГ за замовчуванням), 'settlements_25k' (25.8k сіл), 'cities' (359)
+let activeDataset = 'settlements_25k'; // 'settlements_25k' (25.8k сіл за замовчуванням), 'hromadas' (1.3k), 'cities' (359)
 let settlements25k = [];
 let hromadasData = [];
 let citiesData = [];
