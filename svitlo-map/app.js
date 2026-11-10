@@ -447,46 +447,54 @@ function drawSettlementGlow(x, y, radius, intensity, cat, isFar) {
 }
 
 /**
- * Знеструмлена точка — Автентичний блекаут (Темний графіт із холодним місячним сріблясто-білим сяйвом)
- * Кінематографічний контраст: живе тепле золото (світло є) vs холодний сплячий графіт (блекаут)
+ * Знеструмлена точка — Благородний темний графіт зі срібним сяйвом
+ * (Матовий антрацит + чистий сріблясто-білий обідок Silver Edge)
  */
 function drawExtinguishedPoint(x, y, cat, isFar, zoom) {
   ctx.save();
 
   let r;
   if (cat === 1) {
-    // Міста: чіткі графітові вузли (~4.5-5.5px)
-    r = isFar ? Math.max(2.6, (zoom - 4) * 0.85) : Math.max(4.5, (zoom - 5) * 1.3);
+    // Міста: чіткі виразні графітові медальйони
+    r = isFar ? Math.max(3.0, (zoom - 4) * 0.95) : Math.max(5.0, (zoom - 5) * 1.45);
   } else if (cat === 2) {
-    // Смт (~3px)
-    r = isFar ? Math.max(1.7, (zoom - 4) * 0.55) : Math.max(2.8, (zoom - 5) * 0.85);
+    // Смт
+    r = isFar ? Math.max(2.0, (zoom - 4) * 0.65) : Math.max(3.2, (zoom - 5) * 1.0);
   } else {
-    // Села: акуратні сріблясто-графітові цятки (~1.6-2.0px)
-    r = isFar ? Math.max(1.1, (zoom - 4) * 0.32) : Math.max(1.6, (zoom - 5) * 0.48);
+    // Села: чіткі сріблясто-графітові перлини
+    r = isFar ? Math.max(1.3, (zoom - 4) * 0.4) : Math.max(1.9, (zoom - 5) * 0.6);
   }
 
-  // Холодне місячне мікросяйво (Lunar Glow) навколо знеструмлених міст та селищ
+  // М'який холодний сріблясто-білий ореол для міст і смт
   if (cat <= 2 && r >= 2.4) {
-    const glow = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 2.0);
-    glow.addColorStop(0, 'rgba(241, 245, 249, 0.28)'); // делікатний сріблясто-білий спалах
-    glow.addColorStop(0.5, 'rgba(148, 163, 184, 0.10)');
-    glow.addColorStop(1, 'rgba(15, 23, 42, 0)');
-    ctx.fillStyle = glow;
+    const halo = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 2.2);
+    halo.addColorStop(0, 'rgba(248, 250, 252, 0.42)'); // чистий біло-срібний спалах
+    halo.addColorStop(0.5, 'rgba(148, 163, 184, 0.16)');
+    halo.addColorStop(1, 'rgba(15, 23, 42, 0)');
+    ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(x, y, r * 2.0, 0, Math.PI * 2);
+    ctx.arc(x, y, r * 2.2, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Глибоке темне графітово-антрацитове ядро (вимкнені бетонні квартали)
-  ctx.fillStyle = cat === 1 ? '#090d16' : cat === 2 ? '#0f172a' : '#111827';
+  // Матове темно-графітове ядро (темний антрацит, контрастний до фону карти)
+  ctx.fillStyle = cat === 1 ? '#18202f' : cat === 2 ? '#1e293b' : '#273549';
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // Контрастний холодний біло-срібний обідок (нічне світло місяця / сплячий контур)
-  ctx.strokeStyle = cat === 1 ? 'rgba(248, 250, 252, 0.92)' : cat === 2 ? 'rgba(226, 232, 240, 0.80)' : 'rgba(203, 213, 225, 0.65)';
-  ctx.lineWidth = cat === 1 ? 1.15 : cat === 2 ? 0.95 : 0.8;
+  // Яскравий чистий срібний контур (Silver Edge)
+  ctx.strokeStyle = cat === 1 ? '#f8fafc' : cat === 2 ? '#e2e8f0' : '#cbd5e1';
+  ctx.lineWidth = cat === 1 ? 1.35 : cat === 2 ? 1.1 : 0.9;
   ctx.stroke();
+
+  // Для міст — маленька срібна точка в центрі
+  if (cat === 1 && r >= 3.8) {
+    ctx.fillStyle = 'rgba(241, 245, 249, 0.85)';
+    ctx.beginPath();
+    ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.restore();
 }
