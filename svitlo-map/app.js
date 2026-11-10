@@ -146,7 +146,14 @@ async function loadSvitlobotData() {
   if (isSvitlobotLoading) return;
   isSvitlobotLoading = true;
   try {
-    const res = await fetch('https://api.svitlobot.in.ua/website/getChannelsForMap');
+    let res;
+    try {
+      res = await fetch('/api/svitlobot');
+      if (!res.ok) throw new Error('Proxy status: ' + res.status);
+    } catch (e) {
+      // Фолбек для локальної розробки або якщо проксі недоступний
+      res = await fetch('https://api.svitlobot.in.ua/website/getChannelsForMap');
+    }
     const text = await res.text();
     const lines = text.trim().split('\n');
     const sensors = [];
