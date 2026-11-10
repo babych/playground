@@ -447,47 +447,45 @@ function drawSettlementGlow(x, y, radius, intensity, cat, isFar) {
 }
 
 /**
- * Знеструмлена точка — Чіткий неоново-сапфіровий індикатор (Goldilocks calibration)
- * 1. Оптимальний калібрований радіус: чітко видно на будь-якому зумі, але не роздувається у плями.
- * 2. Насичене напівпрозоре темно-синє ядро rgba(30, 58, 138, 0.7) — не зливається з чорним фоном.
- * 3. Яскравий, контрастний неоновий контур cyan (#38bdf8) для безпомилкової читабельності.
+ * Знеструмлена точка — Автентичний блекаут (Темний графіт із холодним місячним сріблясто-білим сяйвом)
+ * Кінематографічний контраст: живе тепле золото (світло є) vs холодний сплячий графіт (блекаут)
  */
 function drawExtinguishedPoint(x, y, cat, isFar, zoom) {
   ctx.save();
 
   let r;
   if (cat === 1) {
-    // Міста: помітні чіткі неонові вузли (~5-6px)
-    r = isFar ? Math.max(2.8, (zoom - 4) * 0.9) : Math.max(4.8, (zoom - 5) * 1.4);
+    // Міста: чіткі графітові вузли (~4.5-5.5px)
+    r = isFar ? Math.max(2.6, (zoom - 4) * 0.85) : Math.max(4.5, (zoom - 5) * 1.3);
   } else if (cat === 2) {
     // Смт (~3px)
-    r = isFar ? Math.max(1.8, (zoom - 4) * 0.6) : Math.max(3.0, (zoom - 5) * 0.9);
+    r = isFar ? Math.max(1.7, (zoom - 4) * 0.55) : Math.max(2.8, (zoom - 5) * 0.85);
   } else {
-    // Села: чітко видимі електричні цятки (~1.8-2.2px)
-    r = isFar ? Math.max(1.2, (zoom - 4) * 0.35) : Math.max(1.7, (zoom - 5) * 0.5);
+    // Села: акуратні сріблясто-графітові цятки (~1.6-2.0px)
+    r = isFar ? Math.max(1.1, (zoom - 4) * 0.32) : Math.max(1.6, (zoom - 5) * 0.48);
   }
 
-  // М'який неоновий ореол сенсора для міст і смт
-  if (cat <= 2 && r >= 2.5) {
-    const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 1.8);
-    glow.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
-    glow.addColorStop(0.6, 'rgba(30, 58, 138, 0.18)');
+  // Холодне місячне мікросяйво (Lunar Glow) навколо знеструмлених міст та селищ
+  if (cat <= 2 && r >= 2.4) {
+    const glow = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 2.0);
+    glow.addColorStop(0, 'rgba(241, 245, 249, 0.28)'); // делікатний сріблясто-білий спалах
+    glow.addColorStop(0.5, 'rgba(148, 163, 184, 0.10)');
     glow.addColorStop(1, 'rgba(15, 23, 42, 0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(x, y, r * 1.8, 0, Math.PI * 2);
+    ctx.arc(x, y, r * 2.0, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Насичена напівпрозора основа — контрастна до чорного фону
-  ctx.fillStyle = cat === 1 ? 'rgba(30, 58, 138, 0.75)' : cat === 2 ? 'rgba(30, 58, 138, 0.65)' : 'rgba(23, 37, 84, 0.60)';
+  // Глибоке темне графітово-антрацитове ядро (вимкнені бетонні квартали)
+  ctx.fillStyle = cat === 1 ? '#090d16' : cat === 2 ? '#0f172a' : '#111827';
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // Яскравий контрастний неоновий обідок (Cyan / Electric Blue)
-  ctx.strokeStyle = cat === 1 ? '#38bdf8' : cat === 2 ? 'rgba(56, 189, 248, 0.90)' : 'rgba(56, 189, 248, 0.75)';
-  ctx.lineWidth = cat === 1 ? 1.2 : cat === 2 ? 1.0 : 0.85;
+  // Контрастний холодний біло-срібний обідок (нічне світло місяця / сплячий контур)
+  ctx.strokeStyle = cat === 1 ? 'rgba(248, 250, 252, 0.92)' : cat === 2 ? 'rgba(226, 232, 240, 0.80)' : 'rgba(203, 213, 225, 0.65)';
+  ctx.lineWidth = cat === 1 ? 1.15 : cat === 2 ? 0.95 : 0.8;
   ctx.stroke();
 
   ctx.restore();

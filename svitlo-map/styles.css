@@ -131,9 +131,9 @@ body, html {
 }
 
 .dot-dark {
-  background: #172554;
-  border: 1px solid #60a5fa;
-  box-shadow: 0 0 6px rgba(96, 165, 250, 0.45);
+  background: #0f172a;
+  border: 1px solid rgba(241, 245, 249, 0.85);
+  box-shadow: 0 0 5px rgba(241, 245, 249, 0.35);
 }
 
 .metric-data {
