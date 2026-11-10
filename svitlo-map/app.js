@@ -273,14 +273,22 @@ function drawSettlementGlow(x, y, radius, intensity, cat, isFar) {
 }
 
 /**
- * Знеструмлена точка (Чіткий графітовий маркер відключення світла)
+ * Знеструмлена точка — Чорний антрацит із тонким контрастним контуром
+ * Виразно контрастує на підкладці карти як "погаслий ліхтар"
  */
 function drawExtinguishedPoint(x, y, cat) {
   ctx.save();
-  ctx.fillStyle = cat === 1 ? 'rgba(80, 100, 125, 0.70)' : 'rgba(55, 70, 92, 0.50)';
+  // Глибокий чорний антрацит
+  ctx.fillStyle = '#06080d';
+  const r = cat === 1 ? 3.0 : 1.4;
   ctx.beginPath();
-  ctx.arc(x, y, cat === 1 ? 2.5 : 1.3, 0, Math.PI * 2);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
+
+  // Тонкий контрастний контур, щоб антрацитова точка чітко читалася на сірому фоні карти
+  ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
+  ctx.lineWidth = 0.7;
+  ctx.stroke();
   ctx.restore();
 }
 
