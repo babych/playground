@@ -1,0 +1,18 @@
+/*
+  Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
+
+# Статичні геодані (кешування на Cloudflare Edge на 7 днів)
+/data/*
+  Cache-Control: public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400
+  Access-Control-Allow-Origin: *
+
+# Стилі та скрипти
+/*.js
+  Cache-Control: public, max-age=3600, s-maxage=86400
+/*.css
+  Cache-Control: public, max-age=3600, s-maxage=86400
+
+# HTML
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
