@@ -6,10 +6,12 @@
 let map;
 let canvasOverlay;
 let ctx;
-let activeDataset = 'settlements_25k'; // 'settlements_25k', 'hromadas', 'svitlobot'
+let activeDataset = 'settlements_25k'; // 'settlements_25k' (25.8k населених пунктів), 'hromadas' (1.3k)
+let colorDataSource = 'schedule'; // 'schedule' (погодинний графік доби) або 'svitlobot' (фактичний стан за 2 700+ датчиками)
 let settlements25k = [];
 let hromadasData = [];
-let svitlobotData = [];
+let svitlobotSensors = [];
+let svitlobotGrid = new Map();
 let isSvitlobotLoading = false;
 let hromadasGeoLayer = null;
 let showPolygons = false;
@@ -17,7 +19,7 @@ let currentHour = new Date().getHours();
 let isPlaying = false;
 let playInterval = null;
 let activeItem = null;
-let selectedGroup = 'all';
+let selectedGroup = 'all'; // 'all', '0', '1'..'6'
 
 // Шаблони розкладів черг 1..6
 const SCHEDULE_PATTERNS = {
@@ -131,7 +133,7 @@ async function loadSvitlobotData() {
     const res = await fetch('https://api.svitlobot.in.ua/website/getChannelsForMap');
     const text = await res.text();
     const lines = text.trim().split('\n');
-    const points = [];
+    const sensors = [];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -141,28 +143,66 @@ async function loadSvitlobotData() {
         const status = parseInt(parts[1].trim(), 10);
         const lat = parseFloat(parts[6].trim());
         const lon = parseFloat(parts[7].trim());
-        if (isNaN(lat) || isNaN(lon)) continue;
-
-        points.push({
-          status: isNaN(status) ? 0 : status,
-          time: parts[2] ? parts[2].trim() : '',
-          name: parts[3] ? parts[3].trim() : 'Датчик СвітлоБот',
-          tg: parts[4] ? parts[4].trim() : '',
-          users: parseInt(parts[5].trim(), 10) || 0,
-          lat: lat,
-          lon: lon,
-          groupName: parts[9] ? parts[9].trim() : '',
-          isSvitlobot: true
-        });
+        if ((status === 1 || status === 2) && !isNaN(lat) && !isNaN(lon)) {
+          sensors.push({
+            status: status,
+            lat: lat,
+            lon: lon,
+            name: parts[3] ? parts[3].trim() : 'Датчик СвітлоБот',
+            tg: parts[4] ? parts[4].trim() : '',
+            time: parts[2] ? parts[2].trim() : ''
+          });
+        }
       }
     }
-    svitlobotData = points;
+    svitlobotSensors = sensors;
+
+    // Швидка просторова сітка для миттєвої інтерполяції кольорів точок (~20-30 км)
+    svitlobotGrid.clear();
+    sensors.forEach(s => {
+      const key = Math.floor(s.lat * 5) + '_' + Math.floor(s.lon * 5);
+      if (!svitlobotGrid.has(key)) svitlobotGrid.set(key, []);
+      svitlobotGrid.get(key).push(s);
+    });
+
     isSvitlobotLoading = false;
     renderGlow();
   } catch (err) {
     console.error('Помилка завантаження даних СвітлоБота:', err);
     isSvitlobotLoading = false;
   }
+}
+
+/**
+ * Визначає статус точки (світло є / відключено) за найближчими датчиками СвітлоБота
+ */
+function getSvitlobotStatus(lat, lon, fallbackState) {
+  if (!svitlobotSensors.length) return fallbackState || 'on';
+
+  const cLat = Math.floor(lat * 5);
+  const cLon = Math.floor(lon * 5);
+  let bestDist = 999;
+  let bestStatus = null;
+
+  for (let dlat = -1; dlat <= 1; dlat++) {
+    for (let dlon = -1; dlon <= 1; dlon++) {
+      const cell = svitlobotGrid.get((cLat + dlat) + '_' + (cLon + dlon));
+      if (cell) {
+        for (let i = 0; i < cell.length; i++) {
+          const s = cell[i];
+          const d = (s.lat - lat) * (s.lat - lat) + (s.lon - lon) * (s.lon - lon);
+          if (d < bestDist && d < 0.09) { // радіус пошуку ~30 км
+            bestDist = d;
+            bestStatus = s.status;
+          }
+        }
+      }
+    }
+  }
+
+  if (bestStatus === 1) return 'on';
+  if (bestStatus === 2) return 'off';
+  return fallbackState || 'on';
 }
 
 // 4. ЯДРО: Рендеринг через Canvas з Frustum Culling
@@ -180,42 +220,22 @@ function renderGlow() {
   const east = bounds.getEast() + 0.2;
 
   const zoom = map.getZoom();
-  const groupFilter = selectedGroup === 'all' ? null : selectedGroup === 'none' ? 'none' : parseInt(selectedGroup, 10);
+
+  // Режим вибору черг:
+  // 'all' = всі черги
+  // '0' = режим 0 черг (обмежень немає / світло скрізь)
+  // '1'..'6' = фільтр конкретної черги
+  const isZeroQueues = (selectedGroup === '0' || selectedGroup === 'none');
+  const groupFilter = (selectedGroup === 'all' || isZeroQueues) ? null : parseInt(selectedGroup, 10);
 
   let onCount = 0;
   let maybeCount = 0;
   let offCount = 0;
 
-  if (activeDataset === 'svitlobot') {
-    if (!svitlobotData.length) {
-      if (!isSvitlobotLoading) loadSvitlobotData();
-      return;
-    }
-    const isFar = zoom <= 7;
-    const r = isFar ? Math.max(3.5, (zoom - 4) * 1.8) : Math.max(7.0, (zoom - 4) * 3.0);
-
-    for (let i = 0; i < svitlobotData.length; i++) {
-      const p = svitlobotData[i];
-      if (p.lat < south || p.lat > north || p.lon < west || p.lon > east) continue;
-
-      const pt = map.latLngToContainerPoint([p.lat, p.lon]);
-
-      if (p.status === 1) {
-        onCount++;
-        drawSettlementGlow(pt.x, pt.y, r, 1.0, 1, isFar);
-      } else if (p.status === 2) {
-        offCount++;
-        drawExtinguishedPoint(pt.x, pt.y, 1, isFar, zoom);
-      } else {
-        maybeCount++;
-        drawPausedSensorPoint(pt.x, pt.y, Math.max(2.0, r * 0.45));
-      }
-    }
-  } else if (activeDataset === 'settlements_25k') {
+  if (activeDataset === 'settlements_25k') {
     if (!settlements25k.length) return;
 
     // Масштабні коефіцієнти залежно від зуму
-    // На рівні країни (zoom 5-7) села мають бути мініатюрними точками, щоб створювати "космічне сяйво"
     const isFar = zoom <= 7;
     const villageRadius = isFar ? Math.max(1.0, (zoom - 4) * 0.7) : Math.max(2.5, (zoom - 6) * 1.8);
     const townRadius = isFar ? Math.max(2.5, (zoom - 4) * 1.5) : Math.max(5.0, (zoom - 5) * 2.8);
@@ -232,12 +252,20 @@ function renderGlow() {
       }
 
       const grp = p[4];
-      if (groupFilter !== null && groupFilter !== 'none' && grp !== groupFilter) {
+      if (groupFilter !== null && grp !== groupFilter) {
         continue;
       }
 
-      // Якщо режим 0 черг — світло є скрізь 24/7!
-      const state = groupFilter === 'none' ? 'on' : SCHEDULE_PATTERNS[grp][currentHour];
+      // Розрахунок статусу: або за СвітлоБотом, або за 0 черг, або за розкладом ГПВ
+      let state;
+      if (colorDataSource === 'svitlobot') {
+        state = getSvitlobotStatus(lat, lon, 'on');
+      } else if (isZeroQueues) {
+        state = 'on'; // 0 черг — світло є скрізь 24/7!
+      } else {
+        state = SCHEDULE_PATTERNS[grp][currentHour];
+      }
+
       const cat = p[3]; // 1 = місто, 2 = смт, 3 = село
 
       if (state === 'on') onCount++;
@@ -257,15 +285,23 @@ function renderGlow() {
       }
     }
   } else {
-    // Режим 'hromadas'
+    // Режим 'hromadas' (1.3k громад)
     const list = hromadasData;
     const zoomFactor = Math.max(0.5, (zoom - 4) * 0.4);
 
     list.forEach(p => {
       if (p.lat < south || p.lat > north || p.lon < west || p.lon > east) return;
-      if (groupFilter !== null && groupFilter !== 'none' && p.group !== groupFilter) return;
+      if (groupFilter !== null && p.group !== groupFilter) return;
 
-      const state = groupFilter === 'none' ? 'on' : p.hourly_schedule[currentHour];
+      let state;
+      if (colorDataSource === 'svitlobot') {
+        state = getSvitlobotStatus(p.lat, p.lon, 'on');
+      } else if (isZeroQueues) {
+        state = 'on';
+      } else {
+        state = p.hourly_schedule[currentHour];
+      }
+
       const isMajor = p.importance === 'high';
       const r = isMajor ? Math.max(14, Math.min(50, 16 * zoomFactor)) : Math.max(7, Math.min(24, 7.5 * zoomFactor));
 
@@ -440,17 +476,7 @@ function handleMapClick(e) {
   let closest = null;
   let minDist = 25;
 
-  if (activeDataset === 'svitlobot') {
-    for (let i = 0; i < svitlobotData.length; i++) {
-      const p = svitlobotData[i];
-      const pt = map.latLngToContainerPoint([p.lat, p.lon]);
-      const dist = Math.hypot(pt.x - clickPoint.x, pt.y - clickPoint.y);
-      if (dist < minDist) {
-        minDist = dist;
-        closest = p;
-      }
-    }
-  } else if (activeDataset === 'settlements_25k') {
+  if (activeDataset === 'settlements_25k') {
     for (let i = 0; i < settlements25k.length; i++) {
       const p = settlements25k[i];
       const pt = map.latLngToContainerPoint([p[0], p[1]]);
@@ -491,78 +517,55 @@ function showItemCard(item) {
   const card = document.getElementById('districtCard');
   const badge = document.getElementById('cardStatusBadge');
 
-  if (item.isSvitlobot) {
-    document.getElementById('cardTitle').textContent = item.name;
-    document.getElementById('cardRayon').textContent = 'Живий датчик (Телеметрія)';
-    document.getElementById('cardRegion').textContent = item.groupName || 'СвітлоБот Україна';
-    document.getElementById('cardOperator').textContent = item.tg ? `Канал: @${item.tg}` : 'СвітлоБот';
-    document.getElementById('cardGroupNum').textContent = item.status === 1 ? 'Світло є (Online)' : item.status === 2 ? 'Знеструмлено (Offline)' : 'Зв’язок відсутній';
-
-    badge.className = 'card-status-badge';
-    if (item.status === 1) {
-      badge.textContent = 'Світло є (Фактично онлайн)';
-      badge.classList.add('badge-on');
-    } else if (item.status === 2) {
-      badge.textContent = 'Знеструмлено (Фактично офлайн)';
-      badge.classList.add('badge-off');
-    } else {
-      badge.textContent = 'Немає зв’язку з датчиком';
-      badge.classList.add('badge-maybe');
-    }
-
-    const mini = document.getElementById('miniTimeline');
-    mini.innerHTML = '';
-    if (item.tg) {
-      const btn = document.createElement('a');
-      btn.href = `https://t.me/${item.tg}`;
-      btn.target = '_blank';
-      btn.rel = 'noopener noreferrer';
-      btn.className = 'btn-tg-channel';
-      btn.innerHTML = '✈️ Перейти до Telegram-каналу';
-      mini.appendChild(btn);
-    }
-    const info = document.createElement('div');
-    info.style.fontSize = '11px';
-    info.style.color = '#94a3b8';
-    info.style.marginTop = '10px';
-    info.style.lineHeight = '1.4';
-    const dateStr = item.time ? new Date(item.time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }) : '';
-    info.innerHTML = `Час оновлення: <b>${dateStr}</b><br>Підписників каналу: <b>${item.users}</b><br><span style="color:#64748b">Джерело: svitlobot.in.ua</span>`;
-    mini.appendChild(info);
-
-    card.style.display = 'block';
-    return;
+  const isZero = (selectedGroup === '0' || selectedGroup === 'none');
+  let state;
+  if (colorDataSource === 'svitlobot') {
+    state = getSvitlobotStatus(item.lat, item.lon, 'on');
+  } else if (isZero) {
+    state = 'on';
+  } else {
+    state = item.hourly_schedule ? item.hourly_schedule[currentHour] : 'on';
   }
-
-  const state = item.hourly_schedule ? item.hourly_schedule[currentHour] : 'on';
 
   document.getElementById('cardTitle').textContent = item.name;
   document.getElementById('cardRayon').textContent = item.category || item.rayon || '';
   document.getElementById('cardRegion').textContent = item.region || 'ОЕС України';
   document.getElementById('cardOperator').textContent = item.operator || 'ДТЕК / Обленерго';
-  document.getElementById('cardGroupNum').textContent = `Черга ${item.group}`;
+  document.getElementById('cardGroupNum').textContent = isZero
+    ? 'Режим 0 черг (Без відключень)'
+    : (colorDataSource === 'svitlobot' ? `Черга ${item.group} • СвітлоБот Live` : `Черга ${item.group}`);
 
   badge.className = 'card-status-badge';
   if (state === 'on') {
-    badge.textContent = 'Світло є (За планом)';
+    badge.textContent = colorDataSource === 'svitlobot' ? 'Світло є (За даними СвітлоБота)' : 'Світло є';
     badge.classList.add('badge-on');
   } else if (state === 'maybe') {
     badge.textContent = 'Сіра зона (Можливе відключення)';
     badge.classList.add('badge-maybe');
   } else {
-    badge.textContent = 'Знеструмлено (Графік відключень)';
+    badge.textContent = colorDataSource === 'svitlobot' ? 'Знеструмлено (За даними СвітлоБота)' : 'Знеструмлено (Графік)';
     badge.classList.add('badge-off');
   }
 
   const mini = document.getElementById('miniTimeline');
   mini.innerHTML = '';
-  item.hourly_schedule.forEach((s, idx) => {
-    const bar = document.createElement('div');
-    bar.className = `mini-bar bar-${s}`;
-    if (idx === currentHour) bar.classList.add('current');
-    bar.title = `${idx}:00 — ${s === 'on' ? 'Світло є' : s === 'maybe' ? 'Сіра зона' : 'Відключено'}`;
-    mini.appendChild(bar);
-  });
+  if (colorDataSource === 'svitlobot') {
+    const info = document.createElement('div');
+    info.style.fontSize = '12px';
+    info.style.color = '#94a3b8';
+    info.style.lineHeight = '1.5';
+    info.style.padding = '8px 0';
+    info.innerHTML = `Статус населеного пункту визначено на основі найближчих онлайн-датчиків мережі <b>СвітлоБот</b>.<br><span style="color:#38bdf8">Фактичний стан: ${state === 'on' ? '🟢 Живлення присутнє' : '🔵 Зафіксовано знеструмлення'}</span>`;
+    mini.appendChild(info);
+  } else if (item.hourly_schedule) {
+    item.hourly_schedule.forEach((s, idx) => {
+      const bar = document.createElement('div');
+      bar.className = `mini-bar bar-${s}`;
+      if (idx === currentHour) bar.classList.add('current');
+      bar.title = `${idx}:00 — ${s === 'on' ? 'Світло є' : s === 'maybe' ? 'Сіра зона' : 'Відключено'}`;
+      mini.appendChild(bar);
+    });
+  }
 
   card.style.display = 'block';
 }
@@ -621,15 +624,13 @@ function setupUIEvents() {
     activeItem = null;
   });
 
-  // Перемикачі шарів
+  // Перемикачі шарів пунктів (25.8k сіл/міст або 1.3k громад)
   const btn25k = document.getElementById('btnLayer25k');
   const btnHromadas = document.getElementById('btnLayerHromadas');
-  const btnSvitlobot = document.getElementById('btnLayerSvitlobot');
 
   btn25k.addEventListener('click', () => {
     btn25k.classList.add('active');
     btnHromadas.classList.remove('active');
-    btnSvitlobot.classList.remove('active');
     activeDataset = 'settlements_25k';
     renderGlow();
   });
@@ -637,17 +638,28 @@ function setupUIEvents() {
   btnHromadas.addEventListener('click', () => {
     btnHromadas.classList.add('active');
     btn25k.classList.remove('active');
-    btnSvitlobot.classList.remove('active');
     activeDataset = 'hromadas';
     renderGlow();
   });
 
-  btnSvitlobot.addEventListener('click', () => {
-    btnSvitlobot.classList.add('active');
-    btn25k.classList.remove('active');
-    btnHromadas.classList.remove('active');
-    activeDataset = 'svitlobot';
-    if (!svitlobotData.length) {
+  // Перемикачі джерела кольорів точок:
+  // 📅 За графіком ГПВ (жовті/сині за розкладом доби)
+  // 📡 СвітлоБот Live (жовті/сині за фактичними даними 2 700+ датчиків)
+  const btnSourceSchedule = document.getElementById('btnSourceSchedule');
+  const btnSourceSvitlobot = document.getElementById('btnSourceSvitlobot');
+
+  btnSourceSchedule.addEventListener('click', () => {
+    btnSourceSchedule.classList.add('active');
+    btnSourceSvitlobot.classList.remove('active');
+    colorDataSource = 'schedule';
+    renderGlow();
+  });
+
+  btnSourceSvitlobot.addEventListener('click', () => {
+    btnSourceSvitlobot.classList.add('active');
+    btnSourceSchedule.classList.remove('active');
+    colorDataSource = 'svitlobot';
+    if (!svitlobotSensors.length) {
       loadSvitlobotData();
     } else {
       renderGlow();
@@ -673,20 +685,7 @@ function setupUIEvents() {
     }
 
     let matches = [];
-    if (activeDataset === 'svitlobot') {
-      matches = svitlobotData.filter(p => p.name.toLowerCase().includes(val)).slice(0, 8).map(p => ({
-        name: p.name,
-        catName: p.groupName || 'Датчик',
-        group: p.status === 1 ? 'Світло є' : 'Офлайн',
-        lat: p.lat,
-        lon: p.lon,
-        isSvitlobot: true,
-        status: p.status,
-        time: p.time,
-        tg: p.tg,
-        users: p.users
-      }));
-    } else if (activeDataset === 'settlements_25k') {
+    if (activeDataset === 'settlements_25k') {
       for (let i = 0; i < settlements25k.length; i++) {
         const p = settlements25k[i];
         if (p[2].toLowerCase().includes(val)) {
@@ -722,20 +721,18 @@ function setupUIEvents() {
       item.className = 'search-item';
       item.innerHTML = `
         <div class="search-item-title">${m.name}</div>
-        <div class="search-item-sub">${m.catName} • ${m.group}</div>
+        <div class="search-item-sub">${m.catName} • Черга ${m.group}</div>
       `;
       item.addEventListener('click', () => {
         map.flyTo([m.lat, m.lon], 12, { duration: 1.2 });
-        if (m.isSvitlobot) {
-          showItemCard(m);
-        } else {
-          showItemCard({
-            name: m.name,
-            category: m.catName,
-            group: m.group,
-            hourly_schedule: SCHEDULE_PATTERNS[m.group]
-          });
-        }
+        showItemCard({
+          name: m.name,
+          category: m.catName,
+          group: m.group,
+          lat: m.lat,
+          lon: m.lon,
+          hourly_schedule: SCHEDULE_PATTERNS[m.group]
+        });
         searchResults.style.display = 'none';
         searchInput.value = m.name;
       });
@@ -758,7 +755,7 @@ function setupUIEvents() {
         updateTime(realHour);
       }
     }
-    if (activeDataset === 'svitlobot') {
+    if (colorDataSource === 'svitlobot') {
       loadSvitlobotData();
     }
   }, 30000);
