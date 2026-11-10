@@ -184,14 +184,14 @@ function getSvitlobotStatus(lat, lon, fallbackState) {
   let bestDist = 999;
   let bestStatus = null;
 
-  for (let dlat = -1; dlat <= 1; dlat++) {
-    for (let dlon = -1; dlon <= 1; dlon++) {
+  for (let dlat = -2; dlat <= 2; dlat++) {
+    for (let dlon = -2; dlon <= 2; dlon++) {
       const cell = svitlobotGrid.get((cLat + dlat) + '_' + (cLon + dlon));
       if (cell) {
         for (let i = 0; i < cell.length; i++) {
           const s = cell[i];
           const d = (s.lat - lat) * (s.lat - lat) + (s.lon - lon) * (s.lon - lon);
-          if (d < bestDist && d < 0.09) { // радіус пошуку ~30 км
+          if (d < bestDist && d < 0.45) { // радіус пошуку ~75 км
             bestDist = d;
             bestStatus = s.status;
           }
@@ -203,6 +203,20 @@ function getSvitlobotStatus(lat, lon, fallbackState) {
   if (bestStatus === 1) return 'on';
   if (bestStatus === 2) return 'off';
   return fallbackState || 'on';
+}
+
+/**
+ * Регіони, де за розпорядженням НЕК «Укренерго» наразі діє 0 черг (обмеження не застосовуються)
+ * Тут не малюються сині кола відключень — світло подається стабільно 24/7.
+ */
+function isZeroQueuesRegion(lat, lon) {
+  // Прикарпаття / Івано-Франківська обл. (включно з Яремче, Надвірною, Карпатами, Коломиєю)
+  if (lat >= 47.7 && lat <= 49.25 && lon >= 23.6 && lon <= 25.65) return true;
+  // Закарпатська область
+  if (lat >= 47.9 && lat <= 49.25 && lon >= 22.1 && lon <= 24.3) return true;
+  // Чернівецька область (Буковина)
+  if (lat >= 47.7 && lat <= 48.65 && lon >= 24.8 && lon <= 27.5) return true;
+  return false;
 }
 
 // 4. ЯДРО: Рендеринг через Canvas з Frustum Culling
@@ -260,8 +274,9 @@ function renderGlow() {
       let state;
       if (colorDataSource === 'svitlobot') {
         state = getSvitlobotStatus(lat, lon, 'on');
-      } else if (isZeroQueues) {
-        state = 'on'; // 0 черг — світло є скрізь 24/7!
+      } else if (isZeroQueues || isZeroQueuesRegion(lat, lon)) {
+        // Режим 0 черг або регіон без відключень (Яремче, Прикарпаття) — світло є 24/7 (жодних синіх кіл!)
+        state = 'on';
       } else {
         state = SCHEDULE_PATTERNS[grp][currentHour];
       }
@@ -296,8 +311,8 @@ function renderGlow() {
       let state;
       if (colorDataSource === 'svitlobot') {
         state = getSvitlobotStatus(p.lat, p.lon, 'on');
-      } else if (isZeroQueues) {
-        state = 'on';
+      } else if (isZeroQueues || isZeroQueuesRegion(p.lat, p.lon)) {
+        state = 'on'; // Режим 0 черг — без синіх кіл!
       } else {
         state = p.hourly_schedule[currentHour];
       }
@@ -517,7 +532,7 @@ function showItemCard(item) {
   const card = document.getElementById('districtCard');
   const badge = document.getElementById('cardStatusBadge');
 
-  const isZero = (selectedGroup === '0' || selectedGroup === 'none');
+  const isZero = (selectedGroup === '0' || selectedGroup === 'none' || isZeroQueuesRegion(item.lat, item.lon));
   let state;
   if (colorDataSource === 'svitlobot') {
     state = getSvitlobotStatus(item.lat, item.lon, 'on');
@@ -532,12 +547,12 @@ function showItemCard(item) {
   document.getElementById('cardRegion').textContent = item.region || 'ОЕС України';
   document.getElementById('cardOperator').textContent = item.operator || 'ДТЕК / Обленерго';
   document.getElementById('cardGroupNum').textContent = isZero
-    ? 'Режим 0 черг (Без відключень)'
+    ? 'Режим 0 черг (Обмежень немає / Світло 24/7)'
     : (colorDataSource === 'svitlobot' ? `Черга ${item.group} • СвітлоБот Live` : `Черга ${item.group}`);
 
   badge.className = 'card-status-badge';
   if (state === 'on') {
-    badge.textContent = colorDataSource === 'svitlobot' ? 'Світло є (За даними СвітлоБота)' : 'Світло є';
+    badge.textContent = isZero ? 'Світло є (0 черг Укренерго)' : (colorDataSource === 'svitlobot' ? 'Світло є (За даними СвітлоБота)' : 'Світло є');
     badge.classList.add('badge-on');
   } else if (state === 'maybe') {
     badge.textContent = 'Сіра зона (Можливе відключення)';
