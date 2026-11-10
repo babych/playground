@@ -393,47 +393,15 @@
       </div>
     </section>
 
-    <!-- Flipbook Reader for Online Preview -->
+    <!-- PDF Reader for Online Reading -->
     <section class="reader-container">
       <div class="reader-card">
-        
-        <!-- Controls Top -->
-        <div class="reader-controls-top">
-          <div class="page-indicator" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <span>Сторінка:</span>
-            <input type="number" id="page-jump-input" min="1" max="728" value="1" onchange="jumpToPage(this.value)" style="width: 70px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px; font-weight: 700; font-size: 1rem; text-align: center;">
-            <span>з 728</span>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button id="btn-prev" class="btn-nav" onclick="changePage(-1)">◀ Назад</button>
-            <button id="btn-next" class="btn-nav primary" onclick="changePage(1)">Вперед ▶</button>
-          </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <h3 style="font-size: 1.15rem; color: #1f2937; margin: 0;">📖 Онлайн-читач книги (728 сторінок)</h3>
+          <a href="encyclopedia_root_ukr.pdf" download="Root_Beekeeping_Encyclopedia_UA.pdf" class="btn-nav primary" style="text-decoration: none;">📥 Завантажити PDF</a>
         </div>
 
-        <!-- Page Stage with Touch/Click Navigation -->
-        <div class="page-stage">
-          <img id="book-page-img" src="assets/page_001.jpg" alt="Сторінка книги" onclick="changePage(1)">
-
-          <!-- Left / Right Tap Zones -->
-          <div class="arrow-tap-area arrow-tap-left" onclick="changePage(-1)">
-            <div class="arrow-bubble">❮</div>
-          </div>
-          <div class="arrow-tap-area arrow-tap-right" onclick="changePage(1)">
-            <div class="arrow-bubble">❯</div>
-          </div>
-        </div>
-
-        <!-- Controls Bottom -->
-        <div class="reader-controls-bottom">
-          <div class="progress-bar-container">
-            <div id="reader-progress" class="progress-bar"></div>
-          </div>
-          <div class="bottom-hint">
-            <span>Торкніться правої частини сторінки або свайпайте для гортання</span>
-            <a href="encyclopedia_root_ukr.pdf" download="Root_Beekeeping_Encyclopedia_UA.pdf" style="color: #047857; text-decoration: none; font-weight: 700;">📥 Завантажити повний том (PDF)</a>
-          </div>
-        </div>
-
+        <iframe src="encyclopedia_root_ukr.pdf" style="width: 100%; height: 85vh; border: 1px solid #e5e7eb; border-radius: 12px;" title="Енциклопедія бджільництва А. І. Рута"></iframe>
       </div>
     </section>
   </main>
