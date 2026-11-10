@@ -6,10 +6,9 @@
 let map;
 let canvasOverlay;
 let ctx;
-let activeDataset = 'settlements_25k'; // 'settlements_25k' (25.8k сіл за замовчуванням), 'hromadas' (1.3k), 'cities' (359)
+let activeDataset = 'settlements_25k'; // 'settlements_25k' (25.8k населених пунктів за замовчуванням), 'hromadas' (1.3k)
 let settlements25k = [];
 let hromadasData = [];
-let citiesData = [];
 let hromadasGeoLayer = null;
 let showPolygons = false;
 let currentHour = new Date().getHours();
@@ -102,8 +101,6 @@ async function loadDatasets() {
 
     // 2. Датасет 1315 громад
     fetch('data/hromadas_points.json').then(r => r.json()).then(j => { hromadasData = j.districts; });
-    // 3. Датасет 359 міст
-    fetch('data/districts.json').then(r => r.json()).then(j => { citiesData = j.districts; });
 
     // Межі областей України для фону
     const resGeo = await fetch('data/ukraine_full.geojson');
@@ -186,12 +183,12 @@ function renderGlow() {
         const r = (cat === 1 ? cityRadius : cat === 2 ? townRadius : villageRadius) * 0.75;
         drawSettlementGlow(pt.x, pt.y, r, 0.45, cat, isFar);
       } else {
-        drawExtinguishedPoint(pt.x, pt.y, cat);
+        drawExtinguishedPoint(pt.x, pt.y, cat, isFar, zoom);
       }
     }
   } else {
-    // Режим 'hromadas' або 'cities'
-    const list = activeDataset === 'hromadas' ? hromadasData : citiesData;
+    // Режим 'hromadas'
+    const list = hromadasData;
     const zoomFactor = Math.max(0.5, (zoom - 4) * 0.4);
 
     list.forEach(p => {
@@ -209,7 +206,7 @@ function renderGlow() {
       const pt = map.latLngToContainerPoint([p.lat, p.lon]);
       if (state === 'on') drawSettlementGlow(pt.x, pt.y, r, 1.0, isMajor ? 1 : 2, false);
       else if (state === 'maybe') drawSettlementGlow(pt.x, pt.y, r * 0.75, 0.45, isMajor ? 1 : 2, false);
-      else drawExtinguishedPoint(pt.x, pt.y, isMajor ? 1 : 3);
+      else drawExtinguishedPoint(pt.x, pt.y, isMajor ? 1 : 2, false, zoom);
     });
   }
 
@@ -273,22 +270,47 @@ function drawSettlementGlow(x, y, radius, intensity, cat, isFar) {
 }
 
 /**
- * Знеструмлена точка — Чорний антрацит із тонким контрастним контуром
- * Виразно контрастує на підкладці карти як "погаслий ліхтар"
+ * Знеструмлена точка — Темно-синій холодний індикатор із градацією розмірів
+ * (Міста помітно більші за села, пропорційно масштабу, як і світлоточки)
  */
-function drawExtinguishedPoint(x, y, cat) {
+function drawExtinguishedPoint(x, y, cat, isFar, zoom) {
   ctx.save();
-  // Глибокий чорний антрацит
-  ctx.fillStyle = '#06080d';
-  const r = cat === 1 ? 3.0 : 1.4;
+
+  let r;
+  if (cat === 1) {
+    // Міста: помітно більший радіус
+    r = isFar ? Math.max(3.6, (zoom - 4) * 1.6) : Math.max(6.0, (zoom - 4) * 2.5);
+  } else if (cat === 2) {
+    // Смт
+    r = isFar ? Math.max(2.2, (zoom - 4) * 1.0) : Math.max(3.8, (zoom - 5) * 1.5);
+  } else {
+    // Села
+    r = isFar ? Math.max(1.3, (zoom - 4) * 0.5) : Math.max(2.0, (zoom - 5) * 0.9);
+  }
+
+  // Для міст малюємо легкий холодний темно-синій ореол, щоб підкреслити масштаб знеструмлення
+  if (cat === 1 && r >= 3.5) {
+    const halo = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 2.0);
+    halo.addColorStop(0, 'rgba(30, 58, 138, 0.45)');
+    halo.addColorStop(0.7, 'rgba(15, 23, 42, 0.15)');
+    halo.addColorStop(1, 'rgba(15, 23, 42, 0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 2.0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Насичене темно-синє ядро
+  ctx.fillStyle = cat === 1 ? '#172554' : cat === 2 ? '#1e293b' : '#0f172a';
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // Тонкий контрастний контур, щоб антрацитова точка чітко читалася на сірому фоні карти
-  ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
-  ctx.lineWidth = 0.7;
+  // Контрастний холодний обідок (блакитний електрик)
+  ctx.strokeStyle = cat === 1 ? 'rgba(96, 165, 250, 0.85)' : cat === 2 ? 'rgba(96, 165, 250, 0.65)' : 'rgba(96, 165, 250, 0.45)';
+  ctx.lineWidth = cat === 1 ? 1.2 : 0.8;
   ctx.stroke();
+
   ctx.restore();
 }
 
@@ -352,7 +374,7 @@ function handleMapClick(e) {
       }
     }
   } else {
-    const list = activeDataset === 'hromadas' ? hromadasData : citiesData;
+    const list = hromadasData;
     list.forEach(p => {
       const pt = map.latLngToContainerPoint([p.lat, p.lon]);
       const dist = Math.hypot(pt.x - clickPoint.x, pt.y - clickPoint.y);
@@ -463,12 +485,10 @@ function setupUIEvents() {
   // Перемикачі шарів
   const btn25k = document.getElementById('btnLayer25k');
   const btnHromadas = document.getElementById('btnLayerHromadas');
-  const btnCities = document.getElementById('btnLayerCities');
 
   btn25k.addEventListener('click', () => {
     btn25k.classList.add('active');
     btnHromadas.classList.remove('active');
-    btnCities.classList.remove('active');
     activeDataset = 'settlements_25k';
     renderGlow();
   });
@@ -476,16 +496,7 @@ function setupUIEvents() {
   btnHromadas.addEventListener('click', () => {
     btnHromadas.classList.add('active');
     btn25k.classList.remove('active');
-    btnCities.classList.remove('active');
     activeDataset = 'hromadas';
-    renderGlow();
-  });
-
-  btnCities.addEventListener('click', () => {
-    btnCities.classList.add('active');
-    btn25k.classList.remove('active');
-    btnHromadas.classList.remove('active');
-    activeDataset = 'cities';
     renderGlow();
   });
 
@@ -523,7 +534,7 @@ function setupUIEvents() {
         }
       }
     } else {
-      const list = activeDataset === 'hromadas' ? hromadasData : citiesData;
+      const list = hromadasData;
       matches = list.filter(p => p.name.toLowerCase().includes(val)).slice(0, 8).map(p => ({
         name: p.name,
         catName: p.rayon || '',
