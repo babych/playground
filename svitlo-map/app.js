@@ -19,7 +19,6 @@ let currentHour = new Date().getHours();
 let isPlaying = false;
 let playInterval = null;
 let activeItem = null;
-let selectedGroup = 'all'; // 'all', '0', '1'..'6'
 
 // Шаблони розкладів черг 1..6
 const SCHEDULE_PATTERNS = {
@@ -235,13 +234,6 @@ function renderGlow() {
 
   const zoom = map.getZoom();
 
-  // Режим вибору черг:
-  // 'all' = всі черги
-  // '0' = режим 0 черг (обмежень немає / світло скрізь)
-  // '1'..'6' = фільтр конкретної черги
-  const isZeroQueues = (selectedGroup === '0' || selectedGroup === 'none');
-  const groupFilter = (selectedGroup === 'all' || isZeroQueues) ? null : parseInt(selectedGroup, 10);
-
   let onCount = 0;
   let maybeCount = 0;
   let offCount = 0;
@@ -266,16 +258,13 @@ function renderGlow() {
       }
 
       const grp = p[4];
-      if (groupFilter !== null && grp !== groupFilter) {
-        continue;
-      }
 
-      // Розрахунок статусу: або за СвітлоБотом, або за 0 черг, або за розкладом ГПВ
+      // Розрахунок статусу: або за СвітлоБотом, або за розкладом ГПВ
       let state;
       if (colorDataSource === 'svitlobot') {
         state = getSvitlobotStatus(lat, lon, 'on');
-      } else if (isZeroQueues || isZeroQueuesRegion(lat, lon)) {
-        // Режим 0 черг або регіон без відключень (Яремче, Прикарпаття) — світло є 24/7 (жодних синіх кіл!)
+      } else if (isZeroQueuesRegion(lat, lon)) {
+        // Регіони без обмежень (Яремче, Прикарпаття, Карпати) — світло є 24/7 (жодних синіх кіл!)
         state = 'on';
       } else {
         state = SCHEDULE_PATTERNS[grp][currentHour];
@@ -306,12 +295,11 @@ function renderGlow() {
 
     list.forEach(p => {
       if (p.lat < south || p.lat > north || p.lon < west || p.lon > east) return;
-      if (groupFilter !== null && p.group !== groupFilter) return;
 
       let state;
       if (colorDataSource === 'svitlobot') {
         state = getSvitlobotStatus(p.lat, p.lon, 'on');
-      } else if (isZeroQueues || isZeroQueuesRegion(p.lat, p.lon)) {
+      } else if (isZeroQueuesRegion(p.lat, p.lon)) {
         state = 'on'; // Режим 0 черг — без синіх кіл!
       } else {
         state = p.hourly_schedule[currentHour];
@@ -532,7 +520,7 @@ function showItemCard(item) {
   const card = document.getElementById('districtCard');
   const badge = document.getElementById('cardStatusBadge');
 
-  const isZero = (selectedGroup === '0' || selectedGroup === 'none' || isZeroQueuesRegion(item.lat, item.lon));
+  const isZero = isZeroQueuesRegion(item.lat, item.lon);
   let state;
   if (colorDataSource === 'svitlobot') {
     state = getSvitlobotStatus(item.lat, item.lon, 'on');
@@ -682,11 +670,6 @@ function setupUIEvents() {
   });
 
   document.getElementById('btnTogglePolygons').addEventListener('click', toggleHromadasPolygons);
-
-  document.getElementById('groupSelect').addEventListener('change', (e) => {
-    selectedGroup = e.target.value;
-    renderGlow();
-  });
 
   // Пошук із автодоповненням
   const searchInput = document.getElementById('searchInput');
