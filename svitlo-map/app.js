@@ -12,6 +12,7 @@ let settlements25k = [];
 let hromadasData = [];
 let svitlobotSensors = [];
 let svitlobotGrid = new Map();
+let svitlobotCellStats = new Map();
 let isSvitlobotLoading = false;
 let hromadasGeoLayer = null;
 let showPolygons = false;
@@ -119,6 +120,9 @@ async function loadDatasets() {
     }).addTo(map);
 
     updateTime(currentHour);
+
+    // Фонове оновлення фактичного стану за датчиками СвітлоБота для автоматичного визначення 0 черг
+    loadSvitlobotData();
   } catch (err) {
     console.error('Помилка завантаження геоданих:', err);
   }
@@ -164,8 +168,22 @@ async function loadSvitlobotData() {
       svitlobotGrid.get(key).push(s);
     });
 
+    // Агрегація регіональної телеметрії для динамічного виявлення зон з 0 чергами
+    svitlobotCellStats.clear();
+    sensors.forEach(s => {
+      const key = Math.floor(s.lat * 3.33) + '_' + Math.floor(s.lon * 3.33);
+      if (!svitlobotCellStats.has(key)) svitlobotCellStats.set(key, { on: 0, off: 0 });
+      const c = svitlobotCellStats.get(key);
+      if (s.status === 1) c.on++;
+      else if (s.status === 2) c.off++;
+    });
+
     isSvitlobotLoading = false;
+    // Оновлюємо карту з урахуванням виявлених зон 0 черг
     renderGlow();
+    if (activeItem) {
+      showItemCard(activeItem);
+    }
   } catch (err) {
     console.error('Помилка завантаження даних СвітлоБота:', err);
     isSvitlobotLoading = false;
@@ -205,16 +223,46 @@ function getSvitlobotStatus(lat, lon, fallbackState) {
 }
 
 /**
- * Регіони, де за розпорядженням НЕК «Укренерго» наразі діє 0 черг (обмеження не застосовуються)
- * Тут не малюються сині кола відключень — світло подається стабільно 24/7.
+ * Перевірка, чи діє в локації режим 0 черг Укренерго (обмеження не застосовуються, світло 24/7).
+ * Обчислюється комбіновано:
+ * 1. Гарантовані карпатські/прикарпатські енерговузли (Івано-Франківщина/Яремче, Закарпаття, Буковина).
+ * 2. Динамічний аналіз телеметрії СвітлоБота: якщо в навколишньому секторі (~35 км) >= 3 датчиків і
+ *    понад 88% мають живлення (або 0 вимкнень), цей сектор функціонує в режимі 0 черг.
  */
-function isZeroQueuesRegion(lat, lon) {
-  // Прикарпаття / Івано-Франківська обл. (включно з Яремче, Надвірною, Карпатами, Коломиєю)
-  if (lat >= 47.7 && lat <= 49.25 && lon >= 23.6 && lon <= 25.65) return true;
+function isZeroQueuesLocation(lat, lon) {
+  // 1. Прикарпаття / Івано-Франківська обл. (включно з Яремче, Надвірною, Карпатами, Коломиєю)
+  if (lat >= 47.7 && lat <= 49.3 && lon >= 23.5 && lon <= 25.7) return true;
   // Закарпатська область
-  if (lat >= 47.9 && lat <= 49.25 && lon >= 22.1 && lon <= 24.3) return true;
+  if (lat >= 47.8 && lat <= 49.3 && lon >= 22.0 && lon <= 24.3) return true;
   // Чернівецька область (Буковина)
-  if (lat >= 47.7 && lat <= 48.65 && lon >= 24.8 && lon <= 27.5) return true;
+  if (lat >= 47.7 && lat <= 48.7 && lon >= 24.8 && lon <= 27.5) return true;
+
+  // 2. Динамічна верифікація за телеметрією СвітлоБота
+  if (svitlobotSensors.length > 0) {
+    const cLat = Math.floor(lat * 3.33);
+    const cLon = Math.floor(lon * 3.33);
+    let totalOn = 0;
+    let totalOff = 0;
+
+    for (let dlat = -1; dlat <= 1; dlat++) {
+      for (let dlon = -1; dlon <= 1; dlon++) {
+        const c = svitlobotCellStats.get((cLat + dlat) + '_' + (cLon + dlon));
+        if (c) {
+          totalOn += c.on;
+          totalOff += c.off;
+        }
+      }
+    }
+
+    const total = totalOn + totalOff;
+    if (total >= 3) {
+      const pct = totalOn / total;
+      if (totalOff === 0 || pct >= 0.88) {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -259,12 +307,12 @@ function renderGlow() {
 
       const grp = p[4];
 
-      // Розрахунок статусу: або за СвітлоБотом, або за розкладом ГПВ
+      // Розрахунок статусу: або за СвітлоБотом, або за розкладом ГПВ із врахуванням 0 черг
       let state;
       if (colorDataSource === 'svitlobot') {
         state = getSvitlobotStatus(lat, lon, 'on');
-      } else if (isZeroQueuesRegion(lat, lon)) {
-        // Регіони без обмежень (Яремче, Прикарпаття, Карпати) — світло є 24/7 (жодних синіх кіл!)
+      } else if (isZeroQueuesLocation(lat, lon)) {
+        // Регіони без обмежень (0 черг Укренерго) — світло є 24/7 (жодних синіх кіл!)
         state = 'on';
       } else {
         state = SCHEDULE_PATTERNS[grp][currentHour];
@@ -299,7 +347,7 @@ function renderGlow() {
       let state;
       if (colorDataSource === 'svitlobot') {
         state = getSvitlobotStatus(p.lat, p.lon, 'on');
-      } else if (isZeroQueuesRegion(p.lat, p.lon)) {
+      } else if (isZeroQueuesLocation(p.lat, p.lon)) {
         state = 'on'; // Режим 0 черг — без синіх кіл!
       } else {
         state = p.hourly_schedule[currentHour];
@@ -520,7 +568,7 @@ function showItemCard(item) {
   const card = document.getElementById('districtCard');
   const badge = document.getElementById('cardStatusBadge');
 
-  const isZero = isZeroQueuesRegion(item.lat, item.lon);
+  const isZero = isZeroQueuesLocation(item.lat, item.lon);
   let state;
   if (colorDataSource === 'svitlobot') {
     state = getSvitlobotStatus(item.lat, item.lon, 'on');
@@ -535,7 +583,7 @@ function showItemCard(item) {
   document.getElementById('cardRegion').textContent = item.region || 'ОЕС України';
   document.getElementById('cardOperator').textContent = item.operator || 'ДТЕК / Обленерго';
   document.getElementById('cardGroupNum').textContent = isZero
-    ? 'Режим 0 черг (Обмежень немає / Світло 24/7)'
+    ? 'Режим 0 черг (Обмежень не застосовується • Світло 24/7)'
     : (colorDataSource === 'svitlobot' ? `Черга ${item.group} • СвітлоБот Live` : `Черга ${item.group}`);
 
   badge.className = 'card-status-badge';
@@ -559,6 +607,21 @@ function showItemCard(item) {
     info.style.lineHeight = '1.5';
     info.style.padding = '8px 0';
     info.innerHTML = `Статус населеного пункту визначено на основі найближчих онлайн-датчиків мережі <b>СвітлоБот</b>.<br><span style="color:#38bdf8">Фактичний стан: ${state === 'on' ? '🟢 Живлення присутнє' : '🔵 Зафіксовано знеструмлення'}</span>`;
+    mini.appendChild(info);
+  } else if (isZero) {
+    // 0 черг — графік не застосовується, живлення цілодобове
+    for (let idx = 0; idx < 24; idx++) {
+      const bar = document.createElement('div');
+      bar.className = 'mini-bar bar-on';
+      if (idx === currentHour) bar.classList.add('current');
+      bar.title = `${idx}:00 — Світло є (0 черг)`;
+      mini.appendChild(bar);
+    }
+    const info = document.createElement('div');
+    info.style.fontSize = '11px';
+    info.style.color = '#38bdf8';
+    info.style.marginTop = '6px';
+    info.textContent = '⚡ У цьому регіоні наразі діє 0 черг ГПВ (обмеження не застосовуються)';
     mini.appendChild(info);
   } else if (item.hourly_schedule) {
     item.hourly_schedule.forEach((s, idx) => {
