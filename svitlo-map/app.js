@@ -123,6 +123,19 @@ async function loadDatasets() {
 
     // Фонове оновлення фактичного стану за датчиками СвітлоБота для автоматичного визначення 0 черг
     loadSvitlobotData();
+
+    // Автоматичне періодичне оновлення телеметрії кожні 5 хвилин
+    setInterval(loadSvitlobotData, 5 * 60 * 1000);
+
+    // Автоматична синхронізація години у реальному часі кожну хвилину
+    setInterval(() => {
+      if (!isPlaying) {
+        const nowHour = new Date().getHours();
+        if (nowHour !== currentHour) {
+          updateTime(nowHour);
+        }
+      }
+    }, 60 * 1000);
   } catch (err) {
     console.error('Помилка завантаження геоданих:', err);
   }
