@@ -447,47 +447,47 @@ function drawSettlementGlow(x, y, radius, intensity, cat, isFar) {
 }
 
 /**
- * Знеструмлена точка — Преміальний NASA/SpaceX стиль:
- * 1. Зменшений на 35-45% радіус (не тисне на сусідні села).
- * 2. Глибока напівпрозора заливка rgba(20, 50, 90, 0.45), крізь яку проглядає підкладка (річки, межі).
- * 3. Делікатний тонкий неоновий контур 1px + м'яке холодне мікросяйво сенсора.
+ * Знеструмлена точка — Чіткий неоново-сапфіровий індикатор (Goldilocks calibration)
+ * 1. Оптимальний калібрований радіус: чітко видно на будь-якому зумі, але не роздувається у плями.
+ * 2. Насичене напівпрозоре темно-синє ядро rgba(30, 58, 138, 0.7) — не зливається з чорним фоном.
+ * 3. Яскравий, контрастний неоновий контур cyan (#38bdf8) для безпомилкової читабельності.
  */
 function drawExtinguishedPoint(x, y, cat, isFar, zoom) {
   ctx.save();
 
   let r;
   if (cat === 1) {
-    // Міста: компактні, пропорційні (зменшені на ~40%)
-    r = isFar ? Math.max(1.8, (zoom - 4) * 0.55) : Math.max(2.8, (zoom - 5) * 0.75);
+    // Міста: помітні чіткі неонові вузли (~5-6px)
+    r = isFar ? Math.max(2.8, (zoom - 4) * 0.9) : Math.max(4.8, (zoom - 5) * 1.4);
   } else if (cat === 2) {
-    // Смт
-    r = isFar ? Math.max(1.2, (zoom - 4) * 0.35) : Math.max(1.8, (zoom - 5) * 0.5);
+    // Смт (~3px)
+    r = isFar ? Math.max(1.8, (zoom - 4) * 0.6) : Math.max(3.0, (zoom - 5) * 0.9);
   } else {
-    // Села: делікатні напівпрозорі точки
-    r = isFar ? Math.max(0.8, (zoom - 4) * 0.22) : Math.max(1.1, (zoom - 5) * 0.32);
+    // Села: чітко видимі електричні цятки (~1.8-2.2px)
+    r = isFar ? Math.max(1.2, (zoom - 4) * 0.35) : Math.max(1.7, (zoom - 5) * 0.5);
   }
 
-  // М'яке неонове мікросяйво сенсора для міст і смт
-  if (cat <= 2 && r >= 1.8) {
-    const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2.2);
-    glow.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
-    glow.addColorStop(0.6, 'rgba(30, 58, 138, 0.08)');
+  // М'який неоновий ореол сенсора для міст і смт
+  if (cat <= 2 && r >= 2.5) {
+    const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 1.8);
+    glow.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+    glow.addColorStop(0.6, 'rgba(30, 58, 138, 0.18)');
     glow.addColorStop(1, 'rgba(15, 23, 42, 0)');
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(x, y, r * 2.2, 0, Math.PI * 2);
+    ctx.arc(x, y, r * 1.8, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Глибока напівпрозора скляна основа (просвічує підкладку, річку, межі)
-  ctx.fillStyle = cat === 1 ? 'rgba(20, 50, 90, 0.50)' : cat === 2 ? 'rgba(18, 42, 75, 0.42)' : 'rgba(15, 30, 55, 0.35)';
+  // Насичена напівпрозора основа — контрастна до чорного фону
+  ctx.fillStyle = cat === 1 ? 'rgba(30, 58, 138, 0.75)' : cat === 2 ? 'rgba(30, 58, 138, 0.65)' : 'rgba(23, 37, 84, 0.60)';
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // Тонка неонова лінія (1px)
-  ctx.strokeStyle = cat === 1 ? 'rgba(56, 189, 248, 0.75)' : cat === 2 ? 'rgba(56, 189, 248, 0.55)' : 'rgba(56, 189, 248, 0.35)';
-  ctx.lineWidth = cat === 1 ? 1.0 : 0.75;
+  // Яскравий контрастний неоновий обідок (Cyan / Electric Blue)
+  ctx.strokeStyle = cat === 1 ? '#38bdf8' : cat === 2 ? 'rgba(56, 189, 248, 0.90)' : 'rgba(56, 189, 248, 0.75)';
+  ctx.lineWidth = cat === 1 ? 1.2 : cat === 2 ? 1.0 : 0.85;
   ctx.stroke();
 
   ctx.restore();
