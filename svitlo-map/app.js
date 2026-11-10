@@ -447,33 +447,47 @@ function drawSettlementGlow(x, y, radius, intensity, cat, isFar) {
 }
 
 /**
- * Знеструмлена точка — Делікатний темно-синій нічний індикатор
- * (Акуратні пропорційні вузли без надмірних ореолів)
+ * Знеструмлена точка — Преміальний NASA/SpaceX стиль:
+ * 1. Зменшений на 35-45% радіус (не тисне на сусідні села).
+ * 2. Глибока напівпрозора заливка rgba(20, 50, 90, 0.45), крізь яку проглядає підкладка (річки, межі).
+ * 3. Делікатний тонкий неоновий контур 1px + м'яке холодне мікросяйво сенсора.
  */
 function drawExtinguishedPoint(x, y, cat, isFar, zoom) {
   ctx.save();
 
   let r;
   if (cat === 1) {
-    // Міста: чіткі темні точки (без гігантських дисків)
-    r = isFar ? Math.max(2.2, (zoom - 4) * 0.7) : Math.max(3.8, (zoom - 5) * 1.1);
+    // Міста: компактні, пропорційні (зменшені на ~40%)
+    r = isFar ? Math.max(1.8, (zoom - 4) * 0.55) : Math.max(2.8, (zoom - 5) * 0.75);
   } else if (cat === 2) {
     // Смт
-    r = isFar ? Math.max(1.5, (zoom - 4) * 0.5) : Math.max(2.4, (zoom - 5) * 0.7);
+    r = isFar ? Math.max(1.2, (zoom - 4) * 0.35) : Math.max(1.8, (zoom - 5) * 0.5);
   } else {
-    // Села: крихітні приглушені зерна
-    r = isFar ? Math.max(1.0, (zoom - 4) * 0.3) : Math.max(1.5, (zoom - 5) * 0.45);
+    // Села: делікатні напівпрозорі точки
+    r = isFar ? Math.max(0.8, (zoom - 4) * 0.22) : Math.max(1.1, (zoom - 5) * 0.32);
   }
 
-  // Насичене темно-синє ядро
-  ctx.fillStyle = cat === 1 ? '#172554' : cat === 2 ? '#1e293b' : '#0f172a';
+  // М'яке неонове мікросяйво сенсора для міст і смт
+  if (cat <= 2 && r >= 1.8) {
+    const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2.2);
+    glow.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
+    glow.addColorStop(0.6, 'rgba(30, 58, 138, 0.08)');
+    glow.addColorStop(1, 'rgba(15, 23, 42, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Глибока напівпрозора скляна основа (просвічує підкладку, річку, межі)
+  ctx.fillStyle = cat === 1 ? 'rgba(20, 50, 90, 0.50)' : cat === 2 ? 'rgba(18, 42, 75, 0.42)' : 'rgba(15, 30, 55, 0.35)';
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // Делікатний тонкий контур (холодний блакитний електрик)
-  ctx.strokeStyle = cat === 1 ? 'rgba(96, 165, 250, 0.75)' : cat === 2 ? 'rgba(96, 165, 250, 0.55)' : 'rgba(96, 165, 250, 0.35)';
-  ctx.lineWidth = cat === 1 ? 0.9 : 0.6;
+  // Тонка неонова лінія (1px)
+  ctx.strokeStyle = cat === 1 ? 'rgba(56, 189, 248, 0.75)' : cat === 2 ? 'rgba(56, 189, 248, 0.55)' : 'rgba(56, 189, 248, 0.35)';
+  ctx.lineWidth = cat === 1 ? 1.0 : 0.75;
   ctx.stroke();
 
   ctx.restore();
