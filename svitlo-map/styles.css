@@ -337,6 +337,26 @@ body, html {
   color: #f87171;
 }
 
+.btn-tg-channel {
+  display: block;
+  margin-top: 12px;
+  padding: 9px 12px;
+  background: #0284c7;
+  color: #ffffff;
+  text-decoration: none;
+  text-align: center;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}
+
+.btn-tg-channel:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
 .card-title {
   font-size: 18px;
   font-weight: 700;
