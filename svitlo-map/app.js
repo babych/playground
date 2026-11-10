@@ -273,13 +273,13 @@ function drawSettlementGlow(x, y, radius, intensity, cat, isFar) {
 }
 
 /**
- * Знеструмлена точка
+ * Знеструмлена точка (Чіткий графітовий маркер відключення світла)
  */
 function drawExtinguishedPoint(x, y, cat) {
   ctx.save();
-  ctx.fillStyle = cat === 1 ? 'rgba(55, 65, 80, 0.55)' : 'rgba(38, 48, 62, 0.28)';
+  ctx.fillStyle = cat === 1 ? 'rgba(80, 100, 125, 0.70)' : 'rgba(55, 70, 92, 0.50)';
   ctx.beginPath();
-  ctx.arc(x, y, cat === 1 ? 2.0 : 1.0, 0, Math.PI * 2);
+  ctx.arc(x, y, cat === 1 ? 2.5 : 1.3, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
