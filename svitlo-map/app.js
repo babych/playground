@@ -15,7 +15,7 @@ let svitlobotGrid = new Map();
 let svitlobotCellStats = new Map();
 let isSvitlobotLoading = false;
 let lastSvitlobotFetchTime = 0;
-const SVITLOBOT_POLL_INTERVAL_MS = 60 * 1000; // Рівно 60 секунд (ліміт API СвітлоБота: не частіше 1 разу на хвилину)
+const SVITLOBOT_POLL_INTERVAL_MS = 45 * 1000; // 45 секунд (живе оновлення телеметрії з Cloudflare Edge Cache)
 let hromadasGeoLayer = null;
 let showPolygons = false;
 let currentHour = new Date().getHours();
@@ -126,7 +126,7 @@ async function loadDatasets() {
     // Фонове оновлення фактичного стану за датчиками СвітлоБота для автоматичного визначення 0 черг
     loadSvitlobotData(true);
 
-    // Автоматичне періодичне оновлення телеметрії кожні 60 секунд при активній вкладці
+    // Автоматичне періодичне оновлення телеметрії кожні 45 секунд при активній вкладці
     setInterval(() => {
       if (!document.hidden) {
         loadSvitlobotData();
@@ -157,7 +157,7 @@ async function loadDatasets() {
 // Завантаження живих даних з 2 700+ датчиків СвітлоБота (svitlobot.in.ua)
 async function loadSvitlobotData(force = false) {
   const now = Date.now();
-  if (!force && (now - lastSvitlobotFetchTime < 60000)) return; // ліміт API: не частіше 1 разу на 60 секунд
+  if (!force && (now - lastSvitlobotFetchTime < 20000)) return; // захист від подвійних запитів частіше ніж раз на 20 сек
   if (isSvitlobotLoading) return;
   isSvitlobotLoading = true;
   lastSvitlobotFetchTime = now;

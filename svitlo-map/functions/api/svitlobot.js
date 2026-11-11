@@ -30,12 +30,12 @@ export async function onRequestGet(context) {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+        'Cache-Control': 'public, max-age=30, s-maxage=30, stale-while-revalidate=15',
         'X-Edge-Cache': 'MISS'
       }
     });
 
-    // Зберігаємо в кеш на 60 секунд (ліміт СвітлоБота — не частіше 1 разу на хвилину)
+    // Зберігаємо в кеш на 30 секунд (відповідає циклу оновлення самого СвітлоБота)
     if (context.waitUntil) {
       context.waitUntil(cache.put(cacheKey, response.clone()));
     } else {
