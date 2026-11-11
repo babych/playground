@@ -69,9 +69,10 @@ for row in reader:
     cat = CAT_MAP[cat_name]
     cat_counts[cat] += 1
     
-    # Прив'язка до черги за кодом громади/району для фізичної кластеризації
-    hromada = row.get('hromada_code') or raion or name
-    group_num = (hash(hromada) % 6) + 1
+    # Прив'язка до черги: комбінація коду та назви дає природний розподіл ліній (фідерів)
+    # без утворення штучних 50-кілометрових "чорних дір" на карті
+    code = row.get('code') or ''
+    group_num = (hash(name + code) % 6) + 1
     
     # Компактний кортеж: [lat, lon, name, category, group]
     points.append([lat, lon, name, cat, group_num])
