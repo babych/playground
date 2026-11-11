@@ -14,6 +14,8 @@ let svitlobotSensors = [];
 let svitlobotGrid = new Map();
 let svitlobotCellStats = new Map();
 let isSvitlobotLoading = false;
+let lastSvitlobotFetchTime = 0;
+const SVITLOBOT_POLL_INTERVAL_MS = 45 * 1000; // 45 секунд (живе оновлення телеметрії з Cloudflare Edge Cache)
 let hromadasGeoLayer = null;
 let showPolygons = false;
 let currentHour = new Date().getHours();
@@ -122,12 +124,23 @@ async function loadDatasets() {
     updateTime(currentHour);
 
     // Фонове оновлення фактичного стану за датчиками СвітлоБота для автоматичного визначення 0 черг
-    loadSvitlobotData();
+    loadSvitlobotData(true);
 
-    // Автоматичне періодичне оновлення телеметрії кожні 5 хвилин
-    setInterval(loadSvitlobotData, 5 * 60 * 1000);
+    // Автоматичне періодичне оновлення телеметрії кожні 45 секунд при активній вкладці
+    setInterval(() => {
+      if (!document.hidden) {
+        loadSvitlobotData();
+      }
+    }, SVITLOBOT_POLL_INTERVAL_MS);
 
-    // Автоматична синхронізація години у реальному часі кожну хвилину
+    // Миттєве оновлення при поверненні на вкладку після згортання (Page Visibility API)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - lastSvitlobotFetchTime >= SVITLOBOT_POLL_INTERVAL_MS) {
+        loadSvitlobotData();
+      }
+    });
+
+    // Автоматична синхронізація години у реальному часі кожні 30 секунд
     setInterval(() => {
       if (!isPlaying) {
         const nowHour = new Date().getHours();
@@ -135,16 +148,19 @@ async function loadDatasets() {
           updateTime(nowHour);
         }
       }
-    }, 60 * 1000);
+    }, 30 * 1000);
   } catch (err) {
     console.error('Помилка завантаження геоданих:', err);
   }
 }
 
 // Завантаження живих даних з 2 700+ датчиків СвітлоБота (svitlobot.in.ua)
-async function loadSvitlobotData() {
+async function loadSvitlobotData(force = false) {
+  const now = Date.now();
+  if (!force && (now - lastSvitlobotFetchTime < 20000)) return; // захист від подвійних запитів частіше ніж раз на 20 сек
   if (isSvitlobotLoading) return;
   isSvitlobotLoading = true;
+  lastSvitlobotFetchTime = now;
   try {
     let res;
     try {
@@ -870,19 +886,6 @@ function setupUIEvents() {
       searchResults.style.display = 'none';
     }
   });
-
-  // Автоматична синхронізація часу за годинником та автооновлення даних СвітлоБота
-  setInterval(() => {
-    if (!isPlaying) {
-      const realHour = new Date().getHours();
-      if (realHour !== currentHour) {
-        updateTime(realHour);
-      }
-    }
-    if (colorDataSource === 'svitlobot') {
-      loadSvitlobotData();
-    }
-  }, 30000);
 }
 
 window.addEventListener('DOMContentLoaded', initMap);
