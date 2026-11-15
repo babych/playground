@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carmack's Fluorescent Light Flicker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: #050608;
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      overflow-x: hidden;
+      transition: background-color 0.05s linear;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 780px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      z-index: 2;
+    }
+
+    /* Tube light fixture */
+    .lamp-housing {
+      width: 100%;
+      max-width: 600px;
+      background: #14171d;
+      border: 1px solid #2d333b;
+      border-radius: 12px;
+      padding: 16px 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      position: relative;
+    }
+
+    .tube {
+      width: 100%;
+      height: 22px;
+      border-radius: 11px;
+      background: #1a1e24;
+      border: 1px solid #333;
+      transition: background-color 0.03s, box-shadow 0.03s;
+      position: relative;
+    }
+
+    /* Ambient room glow reflection */
+    .scene-room {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0;
+      transition: opacity 0.04s linear;
+      background: radial-gradient(circle at 50% 25%, rgba(220, 240, 255, 0.22) 0%, rgba(20, 30, 45, 0.05) 55%, transparent 80%);
+    }
+
+    /* Active state when light is ON ('m') */
+    body.light-on {
+      background-color: #0f141c;
+    }
+
+    body.light-on .scene-room {
+      opacity: 1;
+    }
+
+    body.light-on .tube {
+      background: #f4fdff;
+      box-shadow:
+        0 0 12px #cbe9ff,
+        0 0 28px #79c0ff,
+        0 0 65px rgba(56, 139, 253, 0.7);
+      border-color: #ffffff;
+    }
+
+    .title-banner {
+      text-align: center;
+    }
+
+    .title-banner h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      color: #adbac7;
+      transition: color 0.04s, text-shadow 0.04s;
+    }
+
+    body.light-on .title-banner h1 {
+      color: #ffffff;
+      text-shadow: 0 0 12px rgba(121, 192, 255, 0.7);
+    }
+
+    .subtitle {
+      color: #768390;
+      font-size: 0.95rem;
+    }
+
+    /* Pattern visualizer tape */
+    .pattern-track {
+      display: flex;
+      gap: 5px;
+      padding: 12px 18px;
+      background: #161b22;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    .pattern-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 38px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      background: #21262d;
+      color: #8b949e;
+      border: 1px solid transparent;
+      transition: all 0.05s ease;
+    }
+
+    .pattern-cell.is-m {
+      color: #58a6ff;
+    }
+
+    .pattern-cell.is-a {
+      color: #484f58;
+    }
+
+    .pattern-cell.active {
+      transform: scale(1.18);
+      border-color: #58a6ff;
+      background: #388bfd33;
+      color: #ffffff;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.6);
+    }
+
+    /* Controls card */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 14px 20px;
+    }
+
+    button {
+      padding: 8px 18px;
+      background: #238636;
+      color: #ffffff;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: #2ea043;
+    }
+
+    button.paused {
+      background: #da3633;
+    }
+
+    button.paused:hover {
+      background: #f85149;
+    }
+
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: #adbac7;
+    }
+
+    .speed-control input[type="range"] {
+      cursor: pointer;
+      accent-color: #58a6ff;
+    }
+
+    /* Code snippet box */
+    .code-card {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+
+    .code-header {
+      background: #161b22;
+      padding: 8px 14px;
+      color: #8b949e;
+      border-bottom: 1px solid #30363d;
+      font-size: 0.78rem;
+    }
+
+    pre {
+      padding: 14px;
+      overflow-x: auto;
+      color: #c9d1d9;
+      line-height: 1.5;
+    }
+
+    .cm { color: #8b949e; }
+    .kw { color: #ff7b72; }
+    .str { color: #a5d6ff; }
+    .fn { color: #d2a8ff; }
+    .num { color: #79c0ff; }
+  </style>
+</head>
+<body>
+  <div class="scene-room" id="ambient"></div>
+
+  <div class="container">
+    <div class="title-banner">
+      <h1>Carmack's Fluorescent Light Flicker</h1>
+      <p class="subtitle">Quake / Doom engine inspired lightstyle string table</p>
+    </div>
+
+    <!-- Lamp Fixture -->
+    <div class="lamp-housing">
+      <div class="tube" id="tube"></div>
+    </div>
+
+    <!-- Pattern Visualizer -->
+    <div class="pattern-track" id="patternTrack"></div>
+
+    <!-- Interactive Controls -->
+    <div class="controls">
+      <button id="toggleBtn">Pause Flicker</button>
+      <div class="speed-control">
+        <label for="speedRange">Tick Rate (Hz): <span id="hzVal">10</span>Hz</label>
+        <input type="range" id="speedRange" min="2" max="30" value="10">
+      </div>
+    </div>
+
+    <!-- Original Code Card -->
+    <div class="code-card">
+      <div class="code-header">Quake / Carmack Lightstyle Pattern</div>
+      <pre><code><span class="cm">// Carmack's classic fluorescent flicker</span>
+<span class="kw">const char</span> *flicker = <span class="str">"mmamammmmammamamaaamammma"</span>;
+
+<span class="kw">int</span> <span class="fn">brightness</span>(<span class="kw">int</span> t) {
+    <span class="kw">char</span> c = flicker[t % <span class="fn">strlen</span>(flicker)];
+    <span class="kw">return</span> (c == <span class="str">'m'</span>) ? <span class="num">100</span> : <span class="num">0</span>; <span class="cm">// m = full, a = dark</span>
+}</code></pre>
+    </div>
+  </div>
+
+  <script>
+    const flicker = "mmamammmmammamamaaamammma";
+    const patternTrack = document.getElementById("patternTrack");
+    const toggleBtn = document.getElementById("toggleBtn");
+    const speedRange = document.getElementById("speedRange");
+    const hzVal = document.getElementById("hzVal");
+
+    // Render cells in track
+    const cells = [];
+    for (let i = 0; i < flicker.length; i++) {
+      const char = flicker[i];
+      const cell = document.createElement("div");
+      cell.className = `pattern-cell ${char === 'm' ? 'is-m' : 'is-a'}`;
+      cell.textContent = char;
+      patternTrack.appendChild(cell);
+      cells.push(cell);
+    }
+
+    let t = 0;
+    let isRunning = true;
+    let hz = 10;
+    let timerId = null;
+
+    function brightness(tick) {
+      const c = flicker[tick % flicker.length];
+      return (c === 'm') ? 100 : 0;
+    }
+
+    function step() {
+      const activeIdx = t % flicker.length;
+      const b = brightness(t);
+
+      // Update DOM classes for lighting
+      if (b === 100) {
+        document.body.classList.add("light-on");
+      } else {
+        document.body.classList.remove("light-on");
+      }
+
+      // Update pattern visualization highlight
+      cells.forEach((cell, idx) => {
+        if (idx === activeIdx) {
+          cell.classList.add("active");
+        } else {
+          cell.classList.remove("active");
+        }
+      });
+
+      t++;
+    }
+
+    function restartTimer() {
+      if (timerId) clearInterval(timerId);
+      if (isRunning) {
+        timerId = setInterval(step, 1000 / hz);
+      }
+    }
+
+    toggleBtn.addEventListener("click", () => {
+      isRunning = !isRunning;
+      if (isRunning) {
+        toggleBtn.textContent = "Pause Flicker";
+        toggleBtn.classList.remove("paused");
+      } else {
+        toggleBtn.textContent = "Resume Flicker";
+        toggleBtn.classList.add("paused");
+      }
+      restartTimer();
+    });
+
+    speedRange.addEventListener("input", (e) => {
+      hz = parseInt(e.target.value, 10);
+      hzVal.textContent = hz;
+      restartTimer();
+    });
+
+    // Start immediately
+    restartTimer();
+    step();
+  </script>
+</body>
+</html>
